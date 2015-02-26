@@ -1,0 +1,397 @@
+
+  <section id="content">
+    <div class="site-width">
+      <div class="primary-secondary-content">
+        <div class="primary-content">
+          <h1>Learning Puppet — Templates</h1>
+          <div id="version-note">  </div>
+          <nav class="in-page" id="page-nav">
+<ol class="toc">
+  <li class="toc-lv2"><a href="#begin">Begin</a></li>
+  <li class="toc-lv2"><a href="#stopping-the-static-content-explosion">Stopping the Static Content Explosion</a></li>
+  <li class="toc-lv2"><a href="#template-files">Template Files</a></li>
+  <li class="toc-lv2"><a href="#rendering-templates">Rendering Templates</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#refererring-to-template-files-in-modules">Refererring to Template Files in Modules</a></li>
+   <li class="toc-lv3"><a href="#inline-templates">Inline Templates</a></li>
+   <li class="toc-lv3"><a href="#aside-functions-in-general">Aside: Functions in General</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#variables-in-templates">Variables in Templates</a></li>
+  <li class="toc-lv2"><a href="#the-erb-templating-language">The ERB Templating Language</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#non-printing-tags">Non-Printing Tags</a></li>
+   <li class="toc-lv3"><a href="#printing-an-expression">Printing an Expression</a></li>
+   <li class="toc-lv3"><a href="#comments">Comments</a></li>
+   <li class="toc-lv3"><a href="#suppressing-line-breaks-and-leading-space">Suppressing Line Breaks and Leading Space</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#an-example-ntp-again">An Example: NTP Again</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#adjusting-the-manifest">Adjusting the Manifest</a></li>
+   <li class="toc-lv3"><a href="#editing-the-templates">Editing the Templates</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#next">Next</a></li>
+</ol></nav>
+
+<h2 id="begin">Begin</h2>
+
+<p>Let’s make a small adjustment to our NTP module from the last chapter: remove the <code>source</code> attribute from the file resource, and replace it with a <code>content</code> attribute using a new function. (Remember that <code>source</code> specifies file contents as a file, and <code>content</code> specifies file contents as a <strong>string.</strong>)</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="c1"># /etc/puppetlabs/puppet/modules/ntp/manifests/init.pp</span>
+
+    <span class="k">class</span> <span class="n">ntp</span> <span class="p">{</span>
+      <span class="c1">#...</span>
+      <span class="c1">#...</span>
+      <span class="c1">#...</span>
+      <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;ntp.conf&#39;</span><span class="p">:</span>
+        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/etc/ntp.conf&#39;</span><span class="p">,</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Package</span><span class="o">[</span><span class="s1">&#39;ntp&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s2">&quot;ntp/${conf_file}.erb&quot;</span><span class="p">),</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>Then, copy the config files into the templates directory:</p>
+
+<pre><code># cd /etc/puppetlabs/puppet/modules/ntp
+# mkdir templates
+# cp files/ntp.conf.el templates/ntp.conf.el.erb
+# cp files/ntp.conf.debian templates/ntp.conf.debian.erb
+</code></pre>
+
+<p>The module should work the same way it’s been working, but your config files are no longer static files; they’re templates.</p>
+
+<h2 id="stopping-the-static-content-explosion">Stopping the Static Content Explosion</h2>
+
+<p>So consider our NTP module.</p>
+
+<p>Right now, we’re shipping around two different config files, which resemble the defaults for Red Hat-like and Debian-like OSes. What if we wanted to make a few small and reasonable changes? For example:</p>
+
+<ul>
+  <li>Use different NTP servers for a small number of machines</li>
+  <li>Adjust the settings on virtual machines, so NTP doesn’t panic if the time jumps</li>
+</ul>
+
+<p>We could end up maintaining eight or more different config files! Let’s not do that. Instead, we can manage a bunch of small differences in one or two <strong>template</strong> files.</p>
+
+<p>Templates are documents that contain a mixture of <em>static</em> and <em>dynamic</em> content. By using a small amount of conditional logic and variable interpolation, they let you maintain one source document that can be rendered into any number of final documents.</p>
+
+<p>For more details on the behavior of Puppet templates, see <a href="/guides/templating.html">the guide for Using Puppet Templates</a>; we’ll cover the basics right here.</p>
+
+<h2 id="template-files">Template Files</h2>
+
+<p>Templates are saved as files with the .erb extension, and should be stored in the <code>templates/</code> directory of any module. There can be any number of subdirectories inside <code>templates/</code>.</p>
+
+<h2 id="rendering-templates">Rendering Templates</h2>
+
+<p>To use a template, you have to <strong>render</strong> it to produce an output string. To do this, use Puppet’s built-in <a href="/references/stable/function.html#template"><code>template</code> function</a>. This function takes a path to one or more template files and returns an output string:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="n">file</span> <span class="p">{</span><span class="s1">&#39;/etc/foo.conf&#39;</span><span class="p">:</span>
+      <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+      <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Package</span><span class="o">[</span><span class="s1">&#39;foo&#39;</span><span class="o">]</span><span class="p">,</span>
+      <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s1">&#39;foo/foo.conf.erb&#39;</span><span class="p">),</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>Notice that we’re using the output string as the value of the <code>content</code> attribute — it wouldn’t work with the <code>source</code> attribute, which expects a URL rather than the actual content for a file.</p>
+
+<h3 id="refererring-to-template-files-in-modules">Refererring to Template Files in Modules</h3>
+
+<p>The <code>template</code> function expects file paths to be in a specific format:</p>
+
+<p><code>&lt;MODULE NAME&gt;/&lt;FILENAME INSIDE TEMPLATES DIRECTORY&gt;</code></p>
+
+<p>That is, <code>template('foo/foo.conf.erb')</code> would point to the file <code>/etc/puppetlabs/puppet/modules/foo/templates/foo.conf.erb</code>.</p>
+
+<blockquote>
+  <p>Note that the path to the template doesn’t use the same semantics as the path in a <code>puppet:///</code> URL. Sorry about the inconsistency.</p>
+</blockquote>
+
+<h3 id="inline-templates">Inline Templates</h3>
+
+<p>Alternately, you can use <a href="/references/stable/function.html#inlinetemplate">the <code>inline_template</code> function</a>, which takes a string containing a template and returns an output string.</p>
+
+<p>This is less frequently useful, but if you have a very small template, you can sometimes embed it in the manifest instead of making a whole new file for it.</p>
+
+<blockquote>
+  <h3 id="aside-functions-in-general">Aside: Functions in General</h3>
+
+  <p>We’ve seen several functions already, including <code>include</code>, <code>template</code>, <code>fail</code>, and <code>str2bool</code>, so this is as good a time as any to explain what they are.</p>
+
+  <p>Puppet has two kinds of functions:</p>
+
+  <ul>
+    <li>Functions that return a value</li>
+    <li>Functions that do something else, without returning a value</li>
+  </ul>
+
+  <p>The <code>template</code> and <code>str2bool</code> functions both return values; you can use them anywhere that requires a value, as long as the return value is the right kind. The <code>include</code> and <code>fail</code> functions do something else, without returning a value — declare a class, and stop catalog compilation, respectively.</p>
+
+  <p>All functions are run during catalog compilation. This means they run on the puppet master, and don’t have access to any files or settings on the agent node.</p>
+
+  <p>Functions can take any number of arguments, which are separated by commas and can be surrounded by optional parentheses:</p>
+
+  <p><code>function(argument, argument, argument)</code></p>
+
+  <p>Functions are plugins, so many custom plugins are available in modules.</p>
+
+  <p>Complete documentation about functions are available at <a href="/puppet/latest/reference/lang_functions.html">the functions page of the Puppet reference manual</a> and <a href="/references/stable/function.html">the list of built-in functions</a>.</p>
+</blockquote>
+
+<h2 id="variables-in-templates">Variables in Templates</h2>
+
+<p>Templates are powerful because they have access to all of the Puppet variables that are present when the template is rendered.</p>
+
+<ul>
+  <li><strong>Facts, global variables,</strong> and <strong>local variables from the current scope</strong> are available to a template as <em>Ruby instance variables</em> — instead of Puppet’s <code>$</code> prefix, they have an <code>@</code> prefix. (e.g. <code>@fqdn, @memoryfree, @operatingsystem</code>, etc.)</li>
+  <li>Variables from other scopes can be accessed with the <code>scope.lookupvar</code> method, which takes a long variable name without the <code>$</code> prefix. (For example, <code>scope.lookupvar('apache::user')</code>.)</li>
+</ul>
+
+<h2 id="the-erb-templating-language">The ERB Templating Language</h2>
+
+<p>Puppet doesn’t have its own templating language; instead, it uses ERB, a common Ruby-based template language. (The Rails framework uses ERB, as do several other projects.)</p>
+
+<p>ERB templates mostly look like normal configuration files, with the occasional <code>&lt;% tag containing Ruby code %&gt;</code>. <a href="/guides/templating.html#erb-template-syntax">The ERB syntax is documented here</a>, but since tags can contain <em>any</em> Ruby code, it’s possible for templates to get pretty complicated.</p>
+
+<p>In general, we recommend keeping templates as simple as possible: we’ll show you how to print variables, do conditional statements, and iterate over arrays, which should be enough for most tasks.</p>
+
+<h3 id="non-printing-tags">Non-Printing Tags</h3>
+
+<p>ERB tags are delimited by angle brackets with percent signs just inside. (There isn’t any HTML-like concept of opening or closing tags.)</p>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%</span> <span class="n">document</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="cp">%&gt;</span><span class="x"></span>
+</code></pre>
+</div>
+
+<p>Tags contain one or more lines of Ruby code, which can set variables, munge data, implement control flow, or… actually, pretty much anything, except for print text in the rendered output.</p>
+
+<h3 id="printing-an-expression">Printing an Expression</h3>
+
+<p>For that, you need to use a printing tag, which looks like a normal tag with an equals sign right after the opening delimiter:</p>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%=</span> <span class="n">sectionheader</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">      environment = </span><span class="cp">&lt;%=</span> <span class="n">gitrevision</span><span class="o">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">5</span><span class="o">]</span> <span class="cp">%&gt;</span><span class="x"></span>
+</code></pre>
+</div>
+
+<p>The value you print can be a simple variable, or it can be an arbitrarily complicated Ruby expression.</p>
+
+<h3 id="comments">Comments</h3>
+
+<p>A tag with a hash mark right after the opening delimiter can hold comments, which aren’t interpreted as code and aren’t displayed in the rendered output.</p>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%#</span><span class="c"> This comment will be ignored. </span><span class="cp">%&gt;</span><span class="x"></span>
+</code></pre>
+</div>
+
+<h3 id="suppressing-line-breaks-and-leading-space">Suppressing Line Breaks and Leading Space</h3>
+
+<p>Regular tags don’t print anything, but if you keep each tag of logic on its own line, the line breaks you use will show up as a swath of whitespace in the final file. Similarly, if you’re indenting for readability, the whitespace in the indent can mess up the format of the rendered output.</p>
+
+<p>If you don’t like that, you can:</p>
+
+<ul>
+  <li>Trim line breaks by putting a hyphen directly before the closing delimiter</li>
+  <li>Trim leading space by putting a hyphen directly after the opening delimiter</li>
+</ul>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%-</span> <span class="n">document</span> <span class="o">+=</span> <span class="n">thisline</span> <span class="cp">-%&gt;</span><span class="x"></span>
+</code></pre>
+</div>
+
+<h2 id="an-example-ntp-again">An Example: NTP Again</h2>
+
+<p>Let’s make the templates in your NTP module a little more clever.</p>
+
+<p>First, make sure you change the file resource to use a template, like we saw at the top of this page. You should also make sure you’ve copied the config files to the <code>templates/</code> directory and given them the .erb extension.</p>
+
+<h3 id="adjusting-the-manifest">Adjusting the Manifest</h3>
+
+<p>Next, we’ll move the default NTP servers out of the config file and into the manifest:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="c1"># /etc/puppetlabs/puppet/modules/ntp/manifests/init.pp</span>
+
+    <span class="k">class</span> <span class="n">ntp</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="vg">$operatingsystem</span> <span class="p">{</span>
+        <span class="n">centos</span><span class="p">,</span> <span class="n">redhat</span><span class="p">:</span> <span class="p">{</span>
+          <span class="vg">$service_name</span>    <span class="o">=</span> <span class="s1">&#39;ntpd&#39;</span>
+          <span class="vg">$conf_file</span>   <span class="o">=</span> <span class="s1">&#39;ntp.conf.el&#39;</span>
+          <span class="vg">$default_servers</span> <span class="o">=</span> <span class="o">[</span> <span class="s2">&quot;0.centos.pool.ntp.org&quot;</span><span class="p">,</span>
+                               <span class="s2">&quot;1.centos.pool.ntp.org&quot;</span><span class="p">,</span>
+                               <span class="s2">&quot;2.centos.pool.ntp.org&quot;</span><span class="p">,</span> <span class="o">]</span>
+        <span class="p">}</span>
+        <span class="n">debian</span><span class="p">,</span> <span class="n">ubuntu</span><span class="p">:</span> <span class="p">{</span>
+          <span class="vg">$service_name</span>    <span class="o">=</span> <span class="s1">&#39;ntp&#39;</span>
+          <span class="vg">$conf_file</span>   <span class="o">=</span> <span class="s1">&#39;ntp.conf.debian&#39;</span>
+          <span class="vg">$default_servers</span> <span class="o">=</span> <span class="o">[</span> <span class="s2">&quot;0.debian.pool.ntp.org iburst&quot;</span><span class="p">,</span>
+                               <span class="s2">&quot;1.debian.pool.ntp.org iburst&quot;</span><span class="p">,</span>
+                               <span class="s2">&quot;2.debian.pool.ntp.org iburst&quot;</span><span class="p">,</span>
+                               <span class="s2">&quot;3.debian.pool.ntp.org iburst&quot;</span><span class="p">,</span> <span class="o">]</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+
+      <span class="vg">$_servers</span> <span class="o">=</span> <span class="vg">$default_servers</span>
+
+      <span class="n">package</span> <span class="p">{</span> <span class="s1">&#39;ntp&#39;</span><span class="p">:</span>
+        <span class="k">ensure</span> <span class="o">=&gt;</span> <span class="n">installed</span><span class="p">,</span>
+      <span class="p">}</span>
+
+      <span class="n">service</span> <span class="p">{</span> <span class="s1">&#39;ntp&#39;</span><span class="p">:</span>
+        <span class="nb">name</span>      <span class="o">=&gt;</span> <span class="vg">$service_name</span><span class="p">,</span>
+        <span class="k">ensure</span>    <span class="o">=&gt;</span> <span class="n">running</span><span class="p">,</span>
+        <span class="n">enable</span>    <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+        <span class="n">subscribe</span> <span class="o">=&gt;</span> <span class="no">File</span><span class="o">[</span><span class="s1">&#39;ntp.conf&#39;</span><span class="o">]</span><span class="p">,</span>
+      <span class="p">}</span>
+
+      <span class="n">file</span> <span class="p">{</span> <span class="s1">&#39;ntp.conf&#39;</span><span class="p">:</span>
+        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/etc/ntp.conf&#39;</span><span class="p">,</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Package</span><span class="o">[</span><span class="s1">&#39;ntp&#39;</span><span class="o">]</span><span class="p">,</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="s2">&quot;ntp/${conf_file}.erb&quot;</span><span class="p">),</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>We’re storing the servers in an array, so we can show how to iterate within a template. Right now, we’re not providing the ability to change the list of servers, but we’re paving the way to do so in the next chapter.</p>
+
+<h3 id="editing-the-templates">Editing the Templates</h3>
+
+<p>First, make each template use the <code>$_servers</code> variable to create the list of <code>server</code> statements:</p>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%#</span><span class="c"> /etc/puppetlabs/puppet/modules/ntp/templates/ntp </span><span class="cp">%&gt;</span><span class="x"></span>
+
+<span class="x">    # Managed by Class[&#39;ntp&#39;]</span>
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="vi">@_servers</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">this_server</span><span class="o">|</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    server </span><span class="cp">&lt;%=</span> <span class="n">this_server</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="k">end</span> <span class="cp">-%&gt;</span><span class="x"></span>
+
+<span class="x">    # ...</span>
+</code></pre>
+</div>
+
+<p>What’s this doing?</p>
+
+<ul>
+  <li>Using a non-printing Ruby tag to start a loop. We reference the <code>$_servers</code> Puppet variable by the name <code>@_servers</code>, then call Ruby’s <code>each</code> method on it. Everything between <code>do |server| -%&gt;</code> and the <code>&lt;% end -%&gt;</code> tag will be repeated for each item in the <code>$_servers</code> array, with the value of that array item being assigned to the temporary <code>this_server</code> variable.</li>
+  <li>Within the loop, we print the literal word <code>server</code>, followed by the value of the current array item.</li>
+</ul>
+
+<p>This snippet will produce something like the following:</p>
+
+<pre><code># Managed by Class['ntp']
+server 0.centos.pool.ntp.org
+server 1.centos.pool.ntp.org
+server 2.centos.pool.ntp.org
+</code></pre>
+
+<p>Next, let’s use the <code>$is_virtual</code> fact to make NTP perform better if this is a virtual machine. At the top of the file, add this:</p>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%</span> <span class="k">if</span> <span class="vi">@is_virtual</span> <span class="o">==</span> <span class="s2">&quot;true&quot;</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    # Keep ntpd from panicking in the event of a large clock skew</span>
+<span class="x">    # when a VM guest is suspended and resumed.</span>
+<span class="x">    tinker panic 0</span>
+
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="k">end</span> <span class="cp">-%&gt;</span><span class="x"></span>
+</code></pre>
+</div>
+
+<p>Then, <em>below</em> the loop we made for the server statements, add this (being sure to replace the similar section of the Red Hat-like template):</p>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    </span><span class="cp">&lt;%</span> <span class="k">if</span> <span class="vi">@is_virtual</span> <span class="o">==</span> <span class="s2">&quot;false&quot;</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    # Undisciplined Local Clock. This is a fake driver intended for backup</span>
+<span class="x">    # and when no outside source of synchronized time is available.</span>
+<span class="x">    server 127.127.1.0 # local clock</span>
+<span class="x">    fudge 127.127.1.0 stratum 10</span>
+
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="k">end</span> <span class="cp">-%&gt;</span><span class="x"></span>
+</code></pre>
+</div>
+
+<p>By using facts to conditionally switch parts of the config file on and off, we can easily react to the type of machine we’re managing.</p>
+
+<h2 id="next">Next</h2>
+
+<p><strong>Next Lesson:</strong></p>
+
+<p>We’ve already seen that classes should sometimes behave differently for different kinds of systems, and have used facts to make conditional changes to both manifests and templates.</p>
+
+<p>Sometimes, though, facts aren’t enough — there are times when a human has to decide what makes a machine different, because that difference is a matter of <em>policy.</em> (For example, the difference between a test server and a production server.)</p>
+
+<p>In these cases, we need to give ourselves a way to manually change the way a class works. We can do this by passing in data with <a href="./modules2.html">class parameters</a>.</p>
+
+<p><strong>Off-Road:</strong></p>
+
+<p>Are you managing any configuration on your real infrastructure yet? You’ve learned a lot by now, so why not <a href="http://info.puppetlabs.com/download-pe.html">download Puppet Enterprise for free</a>, follow <a href="/pe/latest/quick_start.html">the quick start guide</a> to get a small environment installed, and start automating?</p>
+
+
+          <blockquote><p style="font-size: 1.3em; text-align: center;"><a href="#content">↑ Back to top</a></p></blockquote>
+        </div>
+        <nav class="main">
+              <div id="subCol">
+                  <ul id="doc-navigation">
+                    <li class="with-submenu">
+                      <a href="#">
+                        <span>Docs Quick Nav</span>
+                        <span class="drop-down-trigger"></span>
+                      </a>
+                                       <dl>
+                  <dt>Home</dt>
+                    <dd><a href="/">Puppet Docs Front Page</a></dd>
+                  <dt>#1 Most Popular</dt>
+                    <dd><a href="/references/stable/type.html">The Resource Type Reference</a></dd>
+                  <dt>Puppet Enterprise</dt>
+                    <dd><a href="/pe/latest/">Puppet Enterprise User's Guide (latest)</a></dd>
+                    <dd><a href="/pe/latest/quick_start.html">Quick Start Guide</a></dd>
+                  <dt>Puppet in General (PE &amp; Open Source)</dt>
+                      <dd><a href="/puppet/latest/reference">Puppet Reference Manual (latest)</a></dd>
+                      <dd><a href="/learning/">Learning Puppet</a></dd>
+                      <dd><a href="/references/glossary.html">Glossary of Puppet Terms</a></dd>
+                  <dt>Open Source Puppet</dt>
+                    <dd><a href="/guides/install_puppet/pre_install.html">Installing</a></dd>
+                    <dd><a href="/guides/install_puppet/upgrading.html">Upgrading</a></dd>
+                  <dt>Facter</dt>
+                      <dd><a href="/facter/latest/core_facts.html">Core Facts Reference</a></dd>
+                      <dd><a href="/facter/latest/fact_overview.html">Writing Custom Facts</a></dd>
+                  <dt>PuppetDB</dt>
+                      <dd><a href="/puppetdb/latest">PuppetDB Manual</a></dd>
+                  <dt>MCollective</dt>
+                      <dd><a href="/mcollective/index.html">All MCollective Docs</a></dd>
+                      <dd><a href="/mcollective/reference/index.html">References</a></dd>
+                      <dd><a href="/mcollective/simplerpc/index.html">Writing Plugins</a></dd>
+                </dl>
+
+                    </li>
+                  </ul>
+
+
+
+<ul>
+  <li><a href="/learning/index.html">Introduction</a></li>
+  <li><strong>Part one: Serverless Puppet</strong>
+    <ul>
+      <li><a href="/learning/ral.html">Resources and the RAL</a></li>
+      <li><a href="/learning/manifests.html">Manifests</a></li>
+      <li><a href="/learning/ordering.html">Ordering</a></li>
+      <li><a href="/learning/variables.html">Variables, Conditionals, Facts</a></li>
+      <li><a href="/learning/modules1.html">Modules and Classes</a></li>
+      <li><span class="currentpage">Templates</span></li>
+      <li><a href="/learning/modules2.html">Class Parameters</a></li>
+      <li><a href="/learning/definedtypes.html">Defined Types</a></li>
+    </ul>
+  </li>
+  <li><strong>Part two: Master/Agent Puppet</strong>
+    <ul>
+      <li><a href="/learning/agentprep.html">Preparing an Agent VM</a></li>
+      <li><a href="/learning/agent_master_basic.html">Basic Agent/Master Puppet</a></li>
+    </ul>
+  </li>
+</ul>
+
+              </div>
+        </nav>
+      </div>
+    </div>
+  </section>

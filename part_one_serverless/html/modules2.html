@@ -1,0 +1,292 @@
+
+  <section id="content">
+    <div class="site-width">
+      <div class="primary-secondary-content">
+        <div class="primary-content">
+          <h1>Learning Puppet — Class Parameters</h1>
+          <div id="version-note">  </div>
+          <nav class="in-page" id="page-nav">
+<ol class="toc">
+  <li class="toc-lv2"><a href="#begin">Begin</a></li>
+  <li class="toc-lv2"><a href="#investigating-vs-asking-for-help">Investigating vs. Asking For Help</a></li>
+  <li class="toc-lv2"><a href="#class-parameters">Class Parameters</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#default-values">Default Values</a></li>
+   <li class="toc-lv3"><a href="#the-deal-with-resource-like-class-declarations">The Deal With Resource-Like Class Declarations</a></li>
+   <li class="toc-lv3"><a href="#older-ways-to-configure-classes">Older Ways to Configure Classes</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#example-ntp-again">Example: NTP (Again)</a></li>
+  <li class="toc-lv2"><a href="#module-documentation">Module Documentation</a></li>
+  <li class="toc-lv2"><a href="#next">Next</a></li>
+</ol></nav>
+          <h2 id="begin">Begin</h2>
+
+<div class="highlight"><pre><code class="ruby">    <span class="k">class</span> <span class="n">echo_class</span> <span class="p">(</span><span class="vg">$to_echo</span> <span class="o">=</span> <span class="s2">&quot;default value&quot;</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">notify</span> <span class="p">{</span><span class="s2">&quot;What are we echoing? ${to_echo}.&quot;</span><span class="p">:}</span>
+    <span class="p">}</span>
+
+    <span class="k">class</span> <span class="p">{</span><span class="s1">&#39;echo_class&#39;</span><span class="p">:</span>
+      <span class="n">to_echo</span> <span class="o">=&gt;</span> <span class="s1">&#39;Custom value&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>There’s something different about that variable.</p>
+
+<h2 id="investigating-vs-asking-for-help">Investigating vs. Asking For Help</h2>
+
+<p>Most classes have to do slightly different things on different systems. You already know some ways to do that — all of the modules you’ve written so far have switched their behaviors by looking up system facts. Let’s say that they “investigate:” they expect some information to be in a specific place (in the case of facts, a top-scope variable), and go looking for it when they need it.</p>
+
+<p>But this isn’t always the best way to do it, and it starts to break down once you need to switch a module’s behavior on information that doesn’t map cleanly to system facts. Is this a database server? A local NTP server? A test node? A production node? These aren’t necessarily facts; usually, they’re decisions made by a human.</p>
+
+<p>In these cases, it’s often best to just <em>configure</em> the class, and tell it what it needs to know when you declare it. To enable this, classes need some way to ask for information from the outside world.</p>
+
+<h2 id="class-parameters">Class Parameters</h2>
+
+<p>When defining a class, you can give it a list of <strong>parameters.</strong> Parameters go in an optional set of parentheses, between the name and the first curly brace. Each parameter is a variable name, and can have an optional default value; each parameter is separated from the next with a comma.</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="k">class</span> <span class="n">mysql</span> <span class="p">(</span><span class="vg">$user</span> <span class="o">=</span> <span class="s1">&#39;mysql&#39;</span><span class="p">,</span> <span class="vg">$port</span> <span class="o">=</span> <span class="mi">3306</span><span class="p">)</span> <span class="p">{</span>
+      <span class="o">.</span><span class="n">.</span><span class="o">.</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>This is a doorway for passing information into the class:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="k">class</span> <span class="p">{</span><span class="s1">&#39;mysql&#39;</span><span class="p">:</span>
+      <span class="n">user</span> <span class="o">=&gt;</span> <span class="n">mysqlserver</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<ul>
+  <li>If you declare the class with a <a href="./modules1.html#resource-like-class-declarations">resource-like class declaration</a>, the parameters are available as <strong>resource attributes.</strong></li>
+  <li>If you declare the class with <code>include</code> (or leave out some parameters when using a resource-like declaration), Puppet will <a href="/hiera/1/puppet.html#automatic-parameter-lookup">automatically look up values</a> for the parameters in your Hiera data.</li>
+  <li>Inside the definition of the class, they appear as <strong>local variables.</strong></li>
+</ul>
+
+<h3 id="default-values">Default Values</h3>
+
+<p>When defining the class, you can give any parameter a default value. This makes it optional when you declare the class; if you don’t specify a value, it will use the default. Parameters without defaults become mandatory when declaring the class.</p>
+
+<h3 id="the-deal-with-resource-like-class-declarations">The Deal With Resource-Like Class Declarations</h3>
+
+<h4 id="in-puppet-enterprise-2x">In Puppet Enterprise 2.x</h4>
+
+<p>In Puppet 2.7, which is used in the Puppet Enterprise 2.x series, you must use <a href="/puppet/latest/reference/lang_classes.html#using-resource-like-declarations">resource-like class declarations</a> if you want to specify class parameters; you cannot specify parameters with <code>include</code> or in the PE console. If every parameter has a default and you don’t need to override any of them, you can declare the class with <code>include</code>; otherwise, you must use resource-like class declarations.</p>
+
+<p>Resource-like declarations don’t play nicely with <code>include</code>, and if you’re using them, you need to organize your manifests so that they never attempt to declare a class more than once. This has traditionally been a pain, but class parameters are still superior to older ways of configuring classes, and the best practices developed over the course of the Puppet 2.7 series have made them much easier to deal with.</p>
+
+<p>The best way to deal with class parameters in the Puppet Enterprise 2.x series is to create “role” and “profile” modules that combine your functional classes into more complete node descriptions. Once you find yourself managing multiple nodes with Puppet, you should <a href="http://www.craigdunn.org/2012/05/239/">read Craig Dunn’s “Roles and Profiles” essay</a>, which matches the best practices used by Puppet Labs’s services engineers.</p>
+
+<p>To make your roles and profiles more flexible and avoid repeating yourself, you can also install and configure <a href="/hiera/1/">Hiera</a> on your puppet master and specify <a href="/hiera/1/puppet.html#hiera-lookup-functions">Hiera lookup functions</a> as the values of class parameters.</p>
+
+<h4 id="in-puppet-enterprise-3x">In Puppet Enterprise 3.x</h4>
+
+<p>In Puppet 3 and later, which are used in the Puppet Enterprise 3.x series, Puppet will automatically look up any unspecified class parameters in your <a href="/hiera/1/">Hiera</a> data. This means you can safely use <code>include</code> and the PE console with <em>any</em> class (including those with mandatory no-default parameters), as long as you specify parameter values in your Hiera data.</p>
+
+<p>Once you find yourself managing multiple nodes with Puppet, you should <a href="/hiera/1/puppet.html#automatic-parameter-lookup">read the section of the Hiera manual about automatic parameter lookup</a>. Also, the <a href="http://www.craigdunn.org/2012/05/239/">roles and profiles pattern</a> recommended for Puppet Enterprise 2.x users remains relevant in PE 3.x.</p>
+
+<p>You can also now specify class parameters directly in the PE console. However, this works best when using a small number of classes across a small number of nodes; for medium and large deployments, we recommend a combination of Hiera auto-lookup and the roles and profiles pattern.</p>
+
+<h4 id="why-include-cant-directly-take-class-parameters">Why <code>include</code> Can’t Directly Take Class Parameters</h4>
+
+<p>The problem is that classes are singletons, parameters configure the way they behave, and <code>include</code> can declare the same class more than once.</p>
+
+<p>If you were to declare a class multiple times with different parameter values, which set of values should win? The question didn’t seem to have a good answer. The <a href="#older-ways-to-configure-classes">older method of using magic variables</a> actually had this same problem — depending on parse order, there could be several different scope-chains that provided a given value, and the one you actually got would be effectively random. Icky.</p>
+
+<p>The solution Puppet’s designers settled on was that parameter values either had to be explicit and unconflicting (the restrictions on resource-like class declarations), or had to come from somewhere <em>outside</em> Puppet and be already resolved by the time Puppet’s parsing begins (Puppet 3’s <a href="/hiera/1/puppet.html#automatic-parameter-lookup">automatic parameter lookup</a>).</p>
+
+<h3 id="older-ways-to-configure-classes">Older Ways to Configure Classes</h3>
+
+<p>Class parameters were added to Puppet in version 2.6.0, to address a need for a standard and visible way to configure clases.</p>
+
+<p>Prior to that, people generally configured classes by choosing an arbitrary and unique external variable name and having the class retrieve that variable with <a href="/guides/scope_and_puppet.html">dynamically-scoped variable lookup</a>:</p>
+
+<pre><code>$some_variable
+include some_class
+# This class will reach outside its own scope, and hope
+# it finds a value for $some_variable.
+</code></pre>
+
+<p>There were a few problems with this:</p>
+
+<ul>
+  <li>Every class was competing for variable names in an effectively global name space. If you accidentally chose a non-unique name for your magic variables, something bad would happen.</li>
+  <li>When writing modules to share with the world, you had to be very careful to document all of your magic variables; there wasn’t a standard place a user could look to see what data a class needed.</li>
+  <li>This inspired many many people to try and make intricate data hierarchies with node inheritance, which rarely worked and had a tendency to fail dramatically and confusingly.</li>
+</ul>
+
+<h2 id="example-ntp-again">Example: NTP (Again)</h2>
+
+<p>So let’s get back to our NTP module. The first thing we talked about wanting to configure was the set of servers, so that’s a good place to start. First, add a parameter:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="k">class</span> <span class="n">ntp</span> <span class="p">(</span><span class="vg">$servers</span> <span class="o">=</span> <span class="k">undef</span><span class="p">)</span> <span class="p">{</span>
+      <span class="o">.</span><span class="n">.</span><span class="o">.</span>
+</code></pre>
+</div>
+
+<p>Next, we’ll change how we set that <code>$_servers</code> variable that the template uses:</p>
+
+<div class="highlight"><pre><code class="ruby">      <span class="k">if</span> <span class="vg">$servers</span> <span class="o">==</span> <span class="k">undef</span> <span class="p">{</span>
+        <span class="vg">$_servers</span> <span class="o">=</span> <span class="vg">$default_servers</span>
+      <span class="p">}</span>
+      <span class="k">else</span> <span class="p">{</span>
+        <span class="vg">$_servers</span> <span class="o">=</span> <span class="vg">$servers</span>
+      <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>If we specify an array of servers, use that; otherwise, use the defaults.</p>
+
+<p>And… that’s all it takes. If you declare the class with no attributes…</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="kp">include</span> <span class="n">ntp</span>
+</code></pre>
+</div>
+
+<p>…it’ll work the same way it used to. If you declare it with a <code>servers</code> attribute containing an array of servers (with or without appended <code>iburst</code> and <code>dynamic</code> statements)…</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="k">class</span> <span class="p">{</span><span class="s1">&#39;ntp&#39;</span><span class="p">:</span>
+      <span class="n">servers</span> <span class="o">=&gt;</span> <span class="o">[</span> <span class="s2">&quot;ntp1.example.com dynamic&quot;</span><span class="p">,</span> <span class="s2">&quot;ntp2.example.com dynamic&quot;</span><span class="p">,</span> <span class="o">]</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>…it’ll override the default servers in the <code>ntp.conf</code> file.</p>
+
+<p>There’s a bit of trickery to notice: setting a variable or parameter to <code>undef</code> might seem odd, and we’re only doing it because we want to be able to get the default servers without asking for them. (Remember, parameters can’t be optional without an explicit default value.)</p>
+
+<p>Also, remember the business with the <code>$_servers</code> variable? That was because the Puppet language won’t let us re-assign the <code>$servers</code> variable within a given scope. If the default value we wanted was the same regardless of OS, we could just use it as the parameter default, but the extra logic to accomodate the per-OS defaults means we have to make a copy of the variable.</p>
+
+<p>While we’re in the NTP module, what else could we make into a parameter? Well, let’s say you sometimes wanted to prevent the NTP daemon from being used as a server by other nodes. Or maybe you want to install and configure NTP, but not keep the daemon running. You could expose all of these as extra class parameters, and make changes in the manifest or the templates to use them.</p>
+
+<p>All of these changes are based on decisions from the free puppetlabs/ntp module. <a href="https://github.com/puppetlabs/puppetlabs-ntp">You can browse the source of this module</a> and see how these extra parameters play out in the manifest and templates.</p>
+
+<h2 id="module-documentation">Module Documentation</h2>
+
+<p>You have a fairly functional NTP module, at this point. About the only thing it’s missing is some documentation:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="c1"># = Class: ntp</span>
+    <span class="c1">#</span>
+    <span class="c1"># This class installs/configures/manages NTP. It can optionally disable NTP</span>
+    <span class="c1"># on virtual machines. Only supported on Debian-derived and Red Hat-derived OSes.</span>
+    <span class="c1">#</span>
+    <span class="c1"># == Parameters:</span>
+    <span class="c1">#</span>
+    <span class="c1"># $servers:: An array of NTP servers, with or without +iburst+ and</span>
+    <span class="c1">#            +dynamic+ statements appended. Defaults to the OS&#39;s defaults.</span>
+    <span class="c1"># $enable::  Whether to start the NTP service on boot. Defaults to true. Valid</span>
+    <span class="c1">#            values: true and false.</span>
+    <span class="c1"># $ensure::  Whether to run the NTP service. Defaults to running. Valid values:</span>
+    <span class="c1">#            running and stopped.</span>
+    <span class="c1">#</span>
+    <span class="c1"># == Requires:</span>
+    <span class="c1">#</span>
+    <span class="c1"># Nothing.</span>
+    <span class="c1">#</span>
+    <span class="c1"># == Sample Usage:</span>
+    <span class="c1">#</span>
+    <span class="c1">#   class {&#39;ntp&#39;:</span>
+    <span class="c1">#     servers =&gt; [ &quot;ntp1.example.com dynamic&quot;,</span>
+    <span class="c1">#                  &quot;ntp2.example.com dynamic&quot;, ],</span>
+    <span class="c1">#   }</span>
+    <span class="c1">#   class {&#39;ntp&#39;:</span>
+    <span class="c1">#     enable =&gt; false,</span>
+    <span class="c1">#     ensure =&gt; stopped,</span>
+    <span class="c1">#   }</span>
+    <span class="c1">#</span>
+    <span class="k">class</span> <span class="n">ntp</span> <span class="p">(</span><span class="vg">$servers</span> <span class="o">=</span> <span class="k">undef</span><span class="p">,</span> <span class="vg">$enable</span> <span class="o">=</span> <span class="kp">true</span><span class="p">,</span> <span class="vg">$ensure</span> <span class="o">=</span> <span class="n">running</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="vg">$operatingsystem</span> <span class="p">{</span> <span class="o">.</span><span class="n">.</span><span class="o">.</span>
+      <span class="o">.</span><span class="n">.</span><span class="o">.</span>
+</code></pre>
+</div>
+
+<p>This doesn’t have to be Tolstoy, but you should at least write down what the parameters are and what kind of data they take. Your future self will thank you. Also! If you write your documentation in <a href="http://docs.seattlerb.org/rdoc/RDoc/Markup.html">RDoc</a> format and put it in a comment block butted up directly against the start of the class definition, you can automatically generate a browsable Rdoc-style site with info for all your modules. You can test it now, actually:</p>
+
+<pre><code># puppet doc --mode rdoc --outputdir ~/moduledocs --modulepath /etc/puppetlabs/puppet/modules
+</code></pre>
+
+<p>(Then just upload that <code>~/moduledocs</code> folder to some webspace you control, or grab it onto your desktop with SFTP.)</p>
+
+<h2 id="next">Next</h2>
+
+<p><strong>Next Lesson:</strong></p>
+
+<p>Okay, we can pass parameters into classes now and change their behavior. Great! But classes are still always singletons; you can’t declare more than one copy and get two different sets of behavior simultaneously. And you’ll eventually want to do that! What if you had a collection of resources that created a virtual host definition for a web server, or cloned a Git repository, or managed a user account complete with group, SSH key, home directory contents, sudoers entry, and .bashrc/.vimrc/etc. files? What if you wanted more than one Git repo, user account, or vhost on a single machine?</p>
+
+<p>Well, you’d <a href="./definedtypes.html">whip up a defined resource type</a>.</p>
+
+<p><strong>Off-Road:</strong></p>
+
+<p>You’ve seen how to configure classes in both your Hiera data and the PE console; why not grab a module and configure it for your own systems? <a href="http://info.puppetlabs.com/download-pe.html">Download Puppet Enterprise for free</a>, follow <a href="/pe/latest/quick_start.html">the quick start guide</a> to get a small environment installed, install a module from the Puppet Forge (<a href="http://forge.puppetlabs.com/puppetlabs/ntp">maybe puppetlabs/ntp?</a>), and assign it to a node in the console; don’t forget to <a href="/pe/latest/console_classes_groups.html#setting-class-parameters">add parameters</a>.</p>
+
+
+          <blockquote><p style="font-size: 1.3em; text-align: center;"><a href="#content">↑ Back to top</a></p></blockquote>
+        </div>
+        <nav class="main">
+              <div id="subCol">
+                  <ul id="doc-navigation">
+                    <li class="with-submenu">
+                      <a href="#">
+                        <span>Docs Quick Nav</span>
+                        <span class="drop-down-trigger"></span>
+                      </a>
+                                       <dl>
+                  <dt>Home</dt>
+                    <dd><a href="/">Puppet Docs Front Page</a></dd>
+                  <dt>#1 Most Popular</dt>
+                    <dd><a href="/references/stable/type.html">The Resource Type Reference</a></dd>
+                  <dt>Puppet Enterprise</dt>
+                    <dd><a href="/pe/latest/">Puppet Enterprise User's Guide (latest)</a></dd>
+                    <dd><a href="/pe/latest/quick_start.html">Quick Start Guide</a></dd>
+                  <dt>Puppet in General (PE &amp; Open Source)</dt>
+                      <dd><a href="/puppet/latest/reference">Puppet Reference Manual (latest)</a></dd>
+                      <dd><a href="/learning/">Learning Puppet</a></dd>
+                      <dd><a href="/references/glossary.html">Glossary of Puppet Terms</a></dd>
+                  <dt>Open Source Puppet</dt>
+                    <dd><a href="/guides/install_puppet/pre_install.html">Installing</a></dd>
+                    <dd><a href="/guides/install_puppet/upgrading.html">Upgrading</a></dd>
+                  <dt>Facter</dt>
+                      <dd><a href="/facter/latest/core_facts.html">Core Facts Reference</a></dd>
+                      <dd><a href="/facter/latest/fact_overview.html">Writing Custom Facts</a></dd>
+                  <dt>PuppetDB</dt>
+                      <dd><a href="/puppetdb/latest">PuppetDB Manual</a></dd>
+                  <dt>MCollective</dt>
+                      <dd><a href="/mcollective/index.html">All MCollective Docs</a></dd>
+                      <dd><a href="/mcollective/reference/index.html">References</a></dd>
+                      <dd><a href="/mcollective/simplerpc/index.html">Writing Plugins</a></dd>
+                </dl>
+
+                    </li>
+                  </ul>
+
+
+
+<ul>
+  <li><a href="/learning/index.html">Introduction</a></li>
+  <li><strong>Part one: Serverless Puppet</strong>
+    <ul>
+      <li><a href="/learning/ral.html">Resources and the RAL</a></li>
+      <li><a href="/learning/manifests.html">Manifests</a></li>
+      <li><a href="/learning/ordering.html">Ordering</a></li>
+      <li><a href="/learning/variables.html">Variables, Conditionals, Facts</a></li>
+      <li><a href="/learning/modules1.html">Modules and Classes</a></li>
+      <li><a href="/learning/templates.html">Templates</a></li>
+      <li><span class="currentpage">Class Parameters</span></li>
+      <li><a href="/learning/definedtypes.html">Defined Types</a></li>
+    </ul>
+  </li>
+  <li><strong>Part two: Master/Agent Puppet</strong>
+    <ul>
+      <li><a href="/learning/agentprep.html">Preparing an Agent VM</a></li>
+      <li><a href="/learning/agent_master_basic.html">Basic Agent/Master Puppet</a></li>
+    </ul>
+  </li>
+</ul>
+
+              </div>
+        </nav>
+      </div>
+    </div>
+  </section>

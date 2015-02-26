@@ -1,0 +1,269 @@
+
+  <section id="content">
+    <div class="site-width">
+      <div class="primary-secondary-content">
+        <div class="primary-content">
+          <h1>Learning Puppet — Preparing an Agent VM</h1>
+          <div id="version-note">  </div>
+          <nav class="in-page" id="page-nav">
+<ol class="toc">
+  <li class="toc-lv2"><a href="#step-0-get-the-latest-vm">Step 0: Get the Latest VM</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#download-the-latest-vm">Download the Latest VM</a></li>
+   <li class="toc-lv3"><a href="#or-upgrade-pe-on-your-existing-vm">Or: Upgrade PE on Your Existing VM</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#step-1-duplicate-your-existing-vm">Step 1: Duplicate Your Existing VM</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#with-vmware-fusion">With VMware Fusion</a></li>
+   <li class="toc-lv3"><a href="#with-virtualbox">With VirtualBox</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#step-2-reconfigure-the-new-node-with-puppet">Step 2: Reconfigure the New Node With Puppet</a></li>
+  <li class="toc-lv2"><a href="#step-3-make-sure-the-vms-can-communicate">Step 3: Make Sure the VMs Can Communicate</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#ensure-the-vms-can-reach-each-other-by-ip">Ensure the VMs Can Reach Each Other by IP</a></li>
+   <li class="toc-lv3"><a href="#ensure-the-vms-can-reach-the-master-by-name">Ensure the VMs Can Reach the Master by Name</a></li>
+   <li class="toc-lv3"><a href="#ensure-the-firewalls-are-down">Ensure the Firewalls are Down</a></li>
+   <li class="toc-lv3"><a href="#ensure-both-vms-know-the-time">Ensure Both VMs Know the Time</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#next">Next</a></li>
+</ol></nav>
+
+<p>We’re now moving into exercises that involve both a puppet master and one or more agent nodes, and to get the most out of this section, you’ll need to be running more than one node at a time. This interlude will help you get two nodes running and configured so that you’re ready for the next few chapters.</p>
+
+<h2 id="step-0-get-the-latest-vm">Step 0: Get the Latest VM</h2>
+
+<p>Things have changed quite a bit since we posted the first Learning Puppet VM, so to keep these instructions simple, everything below will assume you’re running a system with Puppet Enterprise 2.0 or later. You can check which version of PE you’re running like this:</p>
+
+<pre><code>[root@learn ~]# puppet --version
+2.7.9 (Puppet Enterprise 2.0.1)
+</code></pre>
+
+<p>If you’re up to date, <a href="#step-1-duplicate-your-existing-vm">skip down to here.</a> If you’re running an older version, do one of the following:</p>
+
+<h3 id="download-the-latest-vm">Download the Latest VM</h3>
+
+<p><a href="http://info.puppetlabs.com/learning-puppet-vm">The latest version of the Learning Puppet VM is right over here.</a> As ever, it’s about 500 MB and free for everyone to download.</p>
+
+<p>Before replacing your VM, make sure to save any manifests or modules from your previous copy. (After all, the whole point of Puppet is that you can use them to get right back to where you were.)</p>
+
+<h3 id="or-upgrade-pe-on-your-existing-vm">Or: Upgrade PE on Your Existing VM</h3>
+
+<p>If you can’t download a whole new VM right now, you can:</p>
+
+<ul>
+  <li><a href="http://info.puppetlabs.com/download-pe.html">Download the latest version of Puppet Enterprise</a>. Choose the EL 5 for i386 installer, which is about 50 MB.</li>
+  <li>Copy the installer tarball to your VM and <a href="/pe/latest/install_upgrading.html">follow the upgrade instructions in the PE 2 User’s Guide</a>.</li>
+</ul>
+
+<p>This is more advanced than just downloading the current VM, especially if you’re upgrading from PE 1.0 or 1.1, but we’ve tried to document the process clearly. Follow the instructions for upgrading a combined master/console server.</p>
+
+<h2 id="step-1-duplicate-your-existing-vm">Step 1: Duplicate Your Existing VM</h2>
+
+<p>There are any number of ways you could make an agent VM for the next steps, but the fastest and easiest is to simply copy your existing VM and reconfigure it. (The reconfiguring could be difficult, but there’s a module for that.)</p>
+
+<p>Below, we give instructions for copying the VM with VMware Fusion and with VirtualBox.</p>
+
+<h3 id="with-vmware-fusion">With VMware Fusion</h3>
+
+<p><em>(Note: although we don’t provide a full walkthrough for VMware Workstation, the process should be similar.)</em></p>
+
+<ol>
+  <li>
+    <p>If you still have the zipped VM archive you originally downloaded, you can extract it again for a fresh copy.</p>
+
+    <p>Otherwise, shut down the VM by running <code>shutdown -h now</code> while logged in as root. Once the system is stopped, locate the folder or bundle that contains the VMX file — you can right-click its entry in the Virtual Machine Library window and choose “Show in Finder” — and duplicate that entire directory.</p>
+
+    <p><img src="./images/dupe_vmware_show.png" alt="Show in finder menu item" /> <img src="./images/dupe_vmware_duplicate.png" alt="Duplicate folder menu item" /></p>
+  </li>
+  <li>
+    <p>Your second copy of the files (whether from re-extracting or duplicating) contains a VMX file; <strong>drag it and drop it</strong> onto Fusion’s Virtual Machine Library window. (If this window isn’t displayed, the menu item to display it is in Fusion’s “Window” menu.) This will import the virtual machine <em>without</em> automatically starting it up, which will give you a chance to change its RAM. (If you accidentally start it anyway, you can always change the RAM later or leave it as is.)</p>
+  </li>
+  <li>
+    <p>Once Fusion has the VM, you can right-click its entry in the Library window and choose “Settings” to change the amount of memory it will consume. (Use the “Processors &amp; RAM” section of the settings window.) Although the original (puppet master) VM will need at least 512 MB of RAM, you can safely dial the agent VM down to 256 MB.</p>
+
+    <p>You shouldn’t need to change the networking settings from the default mode (NAT); with VMware, this will allow your VMs to access the internet, each other, and your host system. If you need other nodes on the network to be able to contact your VMs, you can change the networking mode to Bridged.</p>
+  </li>
+  <li>
+    <p>When you start the VM for the first time, Fusion will ask whether you moved it or copied it. You should answer that you copied it.</p>
+  </li>
+</ol>
+
+<h3 id="with-virtualbox">With VirtualBox</h3>
+
+<ol>
+  <li>
+    <p>If you still have the folder with the original OVF file, you can re-import it into VirtualBox for a new VM.</p>
+
+    <p>Otherwise, shut down the VM by running <code>shutdown -h now</code> while logged in as root. Once the system is stopped, right-click on the VM’s entry in the VirtualBox Manager window, and select Clone. You will be presented with a series of dialog boxes.</p>
+
+    <p><img src="./images/dupe_vbox_clone.png" alt="Clone menu item" /></p>
+
+    <ol>
+      <li>
+        <p>In the first one, choose a new name for the VM and make sure the “Reinitialize the MAC address of all network cards” box is <strong>checked.</strong></p>
+
+        <p><img src="./images/dupe_vbox_reinit.png" alt="Reinitialize checkbox" /></p>
+      </li>
+      <li>
+        <p>In the second one, choose “Full Clone.”</p>
+
+        <p><img src="./images/dupe_vbox_fullclone.png" alt="Full clone radio button" /></p>
+      </li>
+    </ol>
+  </li>
+  <li>
+    <p>Once VirtualBox has the new VM ready, <a href="./index.html#with-virtualbox">change its network adapter to Bridged Adapter mode</a>; otherwise, it will be unable to communicate with the puppet master. (You can also configure two network adapters instead of using bridged mode, but this is advanced and should not be done by most users.)</p>
+  </li>
+  <li>
+    <p>You can also click on the “System” settings to reduce the amount of memory the VM will consume. An agent node should only need 256 MB of RAM.</p>
+  </li>
+</ol>
+
+<h2 id="step-2-reconfigure-the-new-node-with-puppet">Step 2: Reconfigure the New Node With Puppet</h2>
+
+<p>Install <a href="./files/learningpuppet.tar.gz">this learningpuppet module</a> on the agent VM, and apply the <code>learningpuppet::makeagent</code> class:</p>
+
+<pre><code># wget http://docs.puppetlabs.com/learning/files/learningpuppet.tar.gz
+# tar -xzf learningpuppet.tar.gz
+# mv learningpuppet /etc/puppetlabs/puppet/modules/
+# puppet apply -e "class {'learningpuppet::makeagent':}"
+</code></pre>
+
+<p>If you don’t give the class a <code>newname</code> attribute, it will default to <code>agent1</code>, which is probably what you want.</p>
+
+<h2 id="step-3-make-sure-the-vms-can-communicate">Step 3: Make Sure the VMs Can Communicate</h2>
+
+<p>For Puppet to work right, your two VMs must:</p>
+
+<ul>
+  <li>Be able to reach each other by IP address</li>
+  <li>Be able to reach the puppet master by name</li>
+  <li>Have their firewalls turned off</li>
+  <li>Have (reasonably) synchronized clocks</li>
+</ul>
+
+<h3 id="ensure-the-vms-can-reach-each-other-by-ip">Ensure the VMs Can Reach Each Other by IP</h3>
+
+<h4 id="with-vmware-fusion-1">With VMware Fusion</h4>
+
+<p>The VMs will be communicating via their <code>eth0</code> IP addresses. Find these addresses by running <code>facter ipaddress_eth0</code> on each system, then try to ping that IP from the other VM.</p>
+
+<p>If the VMs can’t communicate, examine each VM’s settings and make sure:</p>
+
+<ul>
+  <li>The networking mode is either NAT or Bridged.</li>
+  <li>Both VMs have the <em>same</em> networking mode.</li>
+</ul>
+
+<h4 id="with-virtualbox-1">With VirtualBox</h4>
+
+<p>If both VMs have a single network adapter in Bridged Adapter mode (recommended), they will be communicating via their <code>eth0</code> IP addresses. Find these addresses by running <code>facter ipaddress_eth0</code> on each system, then try to ping that IP from the other VM.</p>
+
+<p>If you have configured the VMs to have two network adapters, examine their settings — the VMs will be communicating via whichever adapter is set to Host Only Adapter mode. Run <code>facter ipaddress_&lt;ADAPTER&gt;</code> to find these IP addresses.</p>
+
+<h3 id="ensure-the-vms-can-reach-the-master-by-name">Ensure the VMs Can Reach the Master by Name</h3>
+
+<p>Make sure both VMs’ <code>/etc/hosts</code> files contain a line similar to the following:</p>
+
+<pre><code>172.16.158.151  learn.localdomain   learn puppet.localdomain puppet # This host is required for Puppet's name resolution to work correctly.
+</code></pre>
+
+<p>The IP address should be the one you found for the puppet master in the previous step.</p>
+
+<p>Once you’ve edited the files, test that both VMs can ping the master at both its full name and its aliases:</p>
+
+<pre><code>[root@agent1]# ping learn.localdomain
+[root@agent1]# ping puppet
+</code></pre>
+
+<p>If this doesn’t work, make sure that the <code>/etc/hosts</code> files don’t have any conflicting lines — there should be only one line with those puppet master hostnames. If <code>/etc/hosts</code> looks good, you may also need to flush cached DNS information in each VM:</p>
+
+<pre><code># nscd --invalidate=hosts
+</code></pre>
+
+<h3 id="ensure-the-firewalls-are-down">Ensure the Firewalls are Down</h3>
+
+<p>We shipped the VM with iptables turned off, but it’s worth checking to make sure it’s still down:</p>
+
+<pre><code># service iptables status
+Firewall is stopped.
+</code></pre>
+
+<p>(In a real environment, you’d add firewall rules for Puppet traffic instead of disabling the firewall.)</p>
+
+<h3 id="ensure-both-vms-know-the-time">Ensure Both VMs Know the Time</h3>
+
+<p>Run <code>date -u</code> on both VMs, and compare the output. They should be within about a minute of each other.</p>
+
+<h2 id="next">Next</h2>
+
+<p>Your VMs are ready — now <a href="./agent_master_basic.html">continue reading</a> for a tour of the agent/master Puppet workflow.</p>
+
+          <blockquote><p style="font-size: 1.3em; text-align: center;"><a href="#content">↑ Back to top</a></p></blockquote>
+        </div>
+        <nav class="main">
+              <div id="subCol">
+                  <ul id="doc-navigation">
+                    <li class="with-submenu">
+                      <a href="#">
+                        <span>Docs Quick Nav</span>
+                        <span class="drop-down-trigger"></span>
+                      </a>
+                                       <dl>
+                  <dt>Home</dt>
+                    <dd><a href="/">Puppet Docs Front Page</a></dd>
+                  <dt>#1 Most Popular</dt>
+                    <dd><a href="/references/stable/type.html">The Resource Type Reference</a></dd>
+                  <dt>Puppet Enterprise</dt>
+                    <dd><a href="/pe/latest/">Puppet Enterprise User's Guide (latest)</a></dd>
+                    <dd><a href="/pe/latest/quick_start.html">Quick Start Guide</a></dd>
+                  <dt>Puppet in General (PE &amp; Open Source)</dt>
+                      <dd><a href="/puppet/latest/reference">Puppet Reference Manual (latest)</a></dd>
+                      <dd><a href="/learning/">Learning Puppet</a></dd>
+                      <dd><a href="/references/glossary.html">Glossary of Puppet Terms</a></dd>
+                  <dt>Open Source Puppet</dt>
+                    <dd><a href="/guides/install_puppet/pre_install.html">Installing</a></dd>
+                    <dd><a href="/guides/install_puppet/upgrading.html">Upgrading</a></dd>
+                  <dt>Facter</dt>
+                      <dd><a href="/facter/latest/core_facts.html">Core Facts Reference</a></dd>
+                      <dd><a href="/facter/latest/fact_overview.html">Writing Custom Facts</a></dd>
+                  <dt>PuppetDB</dt>
+                      <dd><a href="/puppetdb/latest">PuppetDB Manual</a></dd>
+                  <dt>MCollective</dt>
+                      <dd><a href="/mcollective/index.html">All MCollective Docs</a></dd>
+                      <dd><a href="/mcollective/reference/index.html">References</a></dd>
+                      <dd><a href="/mcollective/simplerpc/index.html">Writing Plugins</a></dd>
+                </dl>
+
+                    </li>
+                  </ul>
+
+
+
+<ul>
+  <li><a href="/learning/index.html">Introduction</a></li>
+  <li><strong>Part one: Serverless Puppet</strong>
+    <ul>
+      <li><a href="/learning/ral.html">Resources and the RAL</a></li>
+      <li><a href="/learning/manifests.html">Manifests</a></li>
+      <li><a href="/learning/ordering.html">Ordering</a></li>
+      <li><a href="/learning/variables.html">Variables, Conditionals, Facts</a></li>
+      <li><a href="/learning/modules1.html">Modules and Classes</a></li>
+      <li><a href="/learning/templates.html">Templates</a></li>
+      <li><a href="/learning/modules2.html">Class Parameters</a></li>
+      <li><a href="/learning/definedtypes.html">Defined Types</a></li>
+    </ul>
+  </li>
+  <li><strong>Part two: Master/Agent Puppet</strong>
+    <ul>
+      <li><span class="currentpage">Preparing an Agent VM</span></li>
+      <li><a href="/learning/agent_master_basic.html">Basic Agent/Master Puppet</a></li>
+    </ul>
+  </li>
+</ul>
+
+              </div>
+        </nav>
+      </div>
+    </div>
+  </section>

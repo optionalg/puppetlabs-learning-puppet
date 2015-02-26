@@ -1,0 +1,391 @@
+  <section id="content">
+    <div class="site-width">
+      <div class="primary-secondary-content">
+        <div class="primary-content">
+          <h1>Learning Puppet — Defined Types</h1>
+          <div id="version-note">  </div>
+          <nav class="in-page" id="page-nav">
+<ol class="toc">
+  <li class="toc-lv2"><a href="#beyond-singletons">Beyond Singletons</a></li>
+  <li class="toc-lv2"><a href="#defining-a-type">Defining a Type</a></li>
+  <li class="toc-lv2"><a href="#special-little-flowers">Special Little Flowers</a></li>
+  <li class="toc-lv2"><a href="#defined-types-in-modules">Defined Types in Modules</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#resource-references-and-namespaced-types">Resource References and Namespaced Types</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#an-example-apache-vhosts">An Example: Apache Vhosts</a></li>
+  <li class="toc-lv2"><a href="#exercises">Exercises</a></li>
+  <li class="toc-lv2"><a href="#one-last-tip">One Last Tip</a></li>
+  <li class="toc-lv2"><a href="#next">Next</a></li>
+</ol></nav>
+          <h2 id="beyond-singletons">Beyond Singletons</h2>
+
+<p>Say you wrote a chunk of Puppet code that takes parameters and configures an individual Apache virtual host. You put it in a class. It works fine, but since classes are singletons, Puppet won’t ever let you declare more than one vhost.</p>
+
+<p>What you want is something more like a <em>resource type</em> — you can’t declare the same resource twice, but you can declare as many files or users as you want.</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="n">apache</span><span class="o">::</span><span class="n">vhost</span> <span class="p">{</span><span class="s1">&#39;users.example.com&#39;</span><span class="p">:</span>
+      <span class="n">port</span>    <span class="o">=&gt;</span> <span class="mi">80</span><span class="p">,</span>
+      <span class="n">docroot</span> <span class="o">=&gt;</span> <span class="s1">&#39;/var/www/personal&#39;</span><span class="p">,</span>
+      <span class="n">options</span> <span class="o">=&gt;</span> <span class="s1">&#39;Indexes MultiViews&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>This turns out to be easy. To model <em>repeatable</em> chunks of configuration — like a Git repository or an Apache vhost — you should use <strong>defined resource types.</strong></p>
+
+<p>Defined types act like normal resource types and are declared in the same way, but they’re composed of other resources.</p>
+
+<h2 id="defining-a-type">Defining a Type</h2>
+
+<p><strong>You define a type with the <code>define</code> keyword,</strong> and the definition looks almost exactly like a class with parameters. You need:</p>
+
+<ul>
+  <li>The <code>define</code> keyword</li>
+  <li>A <strong>name</strong></li>
+  <li>A list of <strong>parameters</strong> (in parentheses, after the name)
+    <ul>
+      <li>
+        <p>Defined types always automatically get a special <code>$title</code> parameter. Its value is always set to the title of the resource instance. (The <code>$name</code> parameter acts the same way — you can treat it as a synonym for <code>$title</code>.)</p>
+
+        <p>Classes get <code>$title</code> and <code>$name</code> parameters too, but they’re less useful since a class only has one name.</p>
+      </li>
+    </ul>
+  </li>
+  <li>A <strong>block of Puppet code</strong></li>
+</ul>
+
+<p>Like this:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="n">define</span> <span class="n">planfile</span> <span class="p">(</span><span class="vg">$user</span> <span class="o">=</span> <span class="vg">$title</span><span class="p">,</span> <span class="vg">$content</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">file</span> <span class="p">{</span><span class="s2">&quot;/home/${user}/.plan&quot;</span><span class="p">:</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="vg">$content</span><span class="p">,</span>
+        <span class="n">mode</span>    <span class="o">=&gt;</span> <span class="mo">0644</span><span class="p">,</span>
+        <span class="n">owner</span>   <span class="o">=&gt;</span> <span class="vg">$user</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">User</span><span class="o">[</span><span class="vg">$user</span><span class="o">]</span><span class="p">,</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="n">user</span> <span class="p">{</span><span class="s1">&#39;nick&#39;</span><span class="p">:</span>
+      <span class="k">ensure</span>     <span class="o">=&gt;</span> <span class="n">present</span><span class="p">,</span>
+      <span class="n">managehome</span> <span class="o">=&gt;</span> <span class="kp">true</span><span class="p">,</span>
+      <span class="n">uid</span>        <span class="o">=&gt;</span> <span class="mi">517</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">planfile</span> <span class="p">{</span><span class="s1">&#39;nick&#39;</span><span class="p">:</span>
+      <span class="n">content</span> <span class="o">=&gt;</span> <span class="s2">&quot;Working on new Learning Puppet chapters. Tomorrow: upgrading the LP virtual machine.&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>This one’s pretty simple. (In fact, it’s basically just a macro.) It has two parameters, one of which is optional (it defaults to the title of the resource), and the collection of resources it declares is just a single file resource.</p>
+
+<h2 id="special-little-flowers">Special Little Flowers</h2>
+
+<p>So it’s pretty simple, right? Exactly like defining a class? <strong>Almost:</strong> there’s one extra requirement. Since the user might declare any number of instances of a defined type, you have to make sure that the implementation will <strong>never declare the same resource twice.</strong></p>
+
+<p>Consider a slightly different version of that first definition:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="n">define</span> <span class="n">planfile</span> <span class="p">(</span><span class="vg">$user</span> <span class="o">=</span> <span class="vg">$title</span><span class="p">,</span> <span class="vg">$content</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">file</span> <span class="p">{</span><span class="s1">&#39;.plan&#39;</span><span class="p">:</span>
+        <span class="n">path</span>    <span class="o">=&gt;</span> <span class="s2">&quot;/home/${user}/.plan&quot;</span><span class="p">,</span>
+        <span class="k">ensure</span>  <span class="o">=&gt;</span> <span class="n">file</span><span class="p">,</span>
+        <span class="n">content</span> <span class="o">=&gt;</span> <span class="vg">$content</span><span class="p">,</span>
+        <span class="n">mode</span>    <span class="o">=&gt;</span> <span class="mo">0644</span><span class="p">,</span>
+        <span class="n">owner</span>   <span class="o">=&gt;</span> <span class="vg">$user</span><span class="p">,</span>
+        <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">User</span><span class="o">[</span><span class="vg">$user</span><span class="o">]</span><span class="p">,</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>See how the title of the file resource isn’t tied to any of the definition’s parameters?</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="n">planfile</span> <span class="p">{</span><span class="s1">&#39;nick&#39;</span><span class="p">:</span>
+      <span class="n">content</span> <span class="o">=&gt;</span> <span class="s2">&quot;Working on new Learning Puppet chapters. Tomorrow: upgrading the LP virtual machine.&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">planfile</span> <span class="p">{</span><span class="s1">&#39;chris&#39;</span><span class="p">:</span>
+      <span class="n">content</span> <span class="o">=&gt;</span> <span class="s2">&quot;Resurrecting a very dead laptop.&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<pre><code># puppet apply planfiles.pp
+Duplicate definition: File[.plan] is already defined in file /root/manifests/planfile.pp at line 9; cannot redefine at /root/manifests/planfile.pp:9 on node puppet.localdomain
+</code></pre>
+
+<p>Yikes. You can see where we went wrong — every time we declare an instance of <code>planfile</code>, it’s going to declare the resource <code>File['.plan']</code>, and Puppet will fail compilation if you try to declare the same resource twice.</p>
+
+<p><img src="./images/defined_type_collision.png" alt="Tragedy vs. comedy - a diagram showing a resource being declared by two defined type instances, and a diagram showing unique resources being declared by each instance." /></p>
+
+<p>To avoid this, you have to make sure that <strong>both the title and the name</strong> (or namevar) of <strong>every resource</strong> in the definition are somehow derived from a <strong>unique parameter</strong> (often the <code>$title</code>) of the defined type. (For example, we couldn’t derive the file’s title from the <code>$content</code> of the <code>planfile</code> resource, because more than one user might write the same .plan text.)</p>
+
+<p>If there’s a singleton resource that has to exist for any instance of the defined type to work, you should:</p>
+
+<ul>
+  <li>Put that resource in a class.</li>
+  <li>Inside the type definition, use <code>include</code> to declare that class.</li>
+  <li>
+    <p>Also inside the type definition, use something like the following to establish an order dependency:</p>
+
+    <pre><code>  # Make sure compilation will fail if 'myclass' doesn't get declared:
+  Class['myclass'] -&gt; Apache::Vhost["$title"]
+</code></pre>
+
+    <p>Establishing ordering relationships at the class level is generally better than directly requiring one of the resources inside it.</p>
+  </li>
+</ul>
+
+<h2 id="defined-types-in-modules">Defined Types in Modules</h2>
+
+<p>Defined types can be autoloaded just like classes, and thus used from anywhere in your manifests. <a href="./modules1.html#module-structure">Like with classes</a>, <strong>each defined type should go in its own file</strong> in a module’s <code>manifests/</code> directory, and <strong>the same rules for namespacing apply.</strong> (So the <code>apache::vhost</code> type would go somewhere like <code>/etc/puppetlabs/puppet/modules/apache/manifests/vhost.pp</code>, and if we were to keep the <code>planfile</code> type around, it would go in <code>/etc/puppetlabs/puppet/modules/planfile/manifests/init.pp</code>.)</p>
+
+<h3 id="resource-references-and-namespaced-types">Resource References and Namespaced Types</h3>
+
+<p>You might have already noticed this above, but: when you make a <a href="/puppet/latest/reference/lang_datatypes.html#resource-references">resource reference</a> to an instance of a defined type, you have to <strong>capitalize every <a href="/puppet/latest/reference/lang_namespaces.html">namespace segment</a></strong> in the type’s name. That means an instance of the <code>foo::bar::baz</code> type would be referenced like <code>Foo::Bar::Baz['mybaz']</code>.</p>
+
+<h2 id="an-example-apache-vhosts">An Example: Apache Vhosts</h2>
+
+<p>Not that my .plan macro wasn’t pretty great, but let’s be serious for a minute. Remember your <a href="./modules1.html#exercises">Apache module</a> from a few chapters back? Let’s extend it so we can easily declare vhosts. This example code is borrowed from <a href="https://github.com/puppetlabs/puppetlabs-apache">the puppetlabs-apache module</a>.</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="c1"># Definition: apache::vhost</span>
+    <span class="c1">#</span>
+    <span class="c1"># This class installs Apache Virtual Hosts</span>
+    <span class="c1">#</span>
+    <span class="c1"># Parameters:</span>
+    <span class="c1"># - The $port to configure the host on</span>
+    <span class="c1"># - The $docroot provides the DocumentationRoot variable</span>
+    <span class="c1"># - The $template option specifies whether to use the default template or override</span>
+    <span class="c1"># - The $priority of the site</span>
+    <span class="c1"># - The $serveraliases of the site</span>
+    <span class="c1"># - The $options for the given vhost</span>
+    <span class="c1"># - The $vhost_name for name based virtualhosting, defaulting to *</span>
+    <span class="c1">#</span>
+    <span class="c1"># Actions:</span>
+    <span class="c1"># - Install Apache Virtual Hosts</span>
+    <span class="c1">#</span>
+    <span class="c1"># Requires:</span>
+    <span class="c1"># - The apache class</span>
+    <span class="c1">#</span>
+    <span class="c1"># Sample Usage:</span>
+    <span class="c1">#  apache::vhost { &#39;site.name.fqdn&#39;:</span>
+    <span class="c1">#    priority =&gt; &#39;20&#39;,</span>
+    <span class="c1">#    port     =&gt; &#39;80&#39;,</span>
+    <span class="c1">#    docroot  =&gt; &#39;/path/to/docroot&#39;,</span>
+    <span class="c1">#  }</span>
+    <span class="c1">#</span>
+    <span class="n">define</span> <span class="n">apache</span><span class="o">::</span><span class="n">vhost</span><span class="p">(</span>
+        <span class="vg">$port</span><span class="p">,</span>
+        <span class="vg">$docroot</span><span class="p">,</span>
+        <span class="vg">$template</span>      <span class="o">=</span> <span class="s1">&#39;apache/vhost-default.conf.erb&#39;</span><span class="p">,</span>
+        <span class="vg">$priority</span>      <span class="o">=</span> <span class="s1">&#39;25&#39;</span><span class="p">,</span>
+        <span class="vg">$servername</span>    <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+        <span class="vg">$serveraliases</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+        <span class="vg">$options</span>       <span class="o">=</span> <span class="s2">&quot;Indexes FollowSymLinks MultiViews&quot;</span><span class="p">,</span>
+        <span class="vg">$vhost_name</span>    <span class="o">=</span> <span class="s1">&#39;*&#39;</span>
+      <span class="p">)</span> <span class="p">{</span>
+
+      <span class="kp">include</span> <span class="n">apache</span>
+
+      <span class="c1"># Below is a pre-2.6.5 idiom for having a parameter default to the title,</span>
+      <span class="c1"># but you could also just declare $servername = &quot;$title&quot; in the parameters</span>
+      <span class="c1"># list and change srvname to servername in the template.</span>
+
+      <span class="k">if</span> <span class="vg">$servername</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span> <span class="p">{</span>
+        <span class="vg">$srvname</span> <span class="o">=</span> <span class="vg">$title</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="vg">$srvname</span> <span class="o">=</span> <span class="vg">$servername</span>
+      <span class="p">}</span>
+      <span class="k">case</span> <span class="vg">$operatingsystem</span> <span class="p">{</span>
+        <span class="s1">&#39;centos&#39;</span><span class="p">,</span> <span class="s1">&#39;redhat&#39;</span><span class="p">,</span> <span class="s1">&#39;fedora&#39;</span><span class="p">:</span> <span class="p">{</span> <span class="vg">$vdir</span>   <span class="o">=</span> <span class="s1">&#39;/etc/httpd/conf.d&#39;</span>
+                                        <span class="vg">$logdir</span> <span class="o">=</span> <span class="s1">&#39;/var/log/httpd&#39;</span><span class="p">}</span>
+        <span class="s1">&#39;ubuntu&#39;</span><span class="p">,</span> <span class="s1">&#39;debian&#39;</span><span class="p">:</span>           <span class="p">{</span> <span class="vg">$vdir</span>   <span class="o">=</span> <span class="s1">&#39;/etc/apache2/sites-enabled&#39;</span>
+                                        <span class="vg">$logdir</span> <span class="o">=</span> <span class="s1">&#39;/var/log/apache2&#39;</span><span class="p">}</span>
+        <span class="n">default</span><span class="p">:</span>                      <span class="p">{</span> <span class="vg">$vdir</span>   <span class="o">=</span> <span class="s1">&#39;/etc/apache2/sites-enabled&#39;</span>
+                                        <span class="vg">$logdir</span> <span class="o">=</span> <span class="s1">&#39;/var/log/apache2&#39;</span><span class="p">}</span>
+      <span class="p">}</span>
+      <span class="n">file</span> <span class="p">{</span>
+        <span class="s2">&quot;${vdir}/${priority}-${name}.conf&quot;</span><span class="p">:</span>
+          <span class="n">content</span> <span class="o">=&gt;</span> <span class="n">template</span><span class="p">(</span><span class="vg">$template</span><span class="p">),</span>
+          <span class="n">owner</span>   <span class="o">=&gt;</span> <span class="s1">&#39;root&#39;</span><span class="p">,</span>
+          <span class="n">group</span>   <span class="o">=&gt;</span> <span class="s1">&#39;root&#39;</span><span class="p">,</span>
+          <span class="n">mode</span>    <span class="o">=&gt;</span> <span class="s1">&#39;755&#39;</span><span class="p">,</span>
+          <span class="nb">require</span> <span class="o">=&gt;</span> <span class="no">Package</span><span class="o">[</span><span class="s1">&#39;httpd&#39;</span><span class="o">]</span><span class="p">,</span>
+          <span class="n">notify</span>  <span class="o">=&gt;</span> <span class="no">Service</span><span class="o">[</span><span class="s1">&#39;httpd&#39;</span><span class="o">]</span><span class="p">,</span>
+      <span class="p">}</span>
+
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<div class="highlight"><pre><code class="erb"><span class="x">    # /etc/puppetlabs/modules/apache/templates/vhost-default.conf.erb</span>
+
+<span class="x">    # ************************************</span>
+<span class="x">    # Default template in module puppetlabs-apache</span>
+<span class="x">    # Managed by Puppet</span>
+<span class="x">    # ************************************</span>
+
+<span class="x">    Listen </span><span class="cp">&lt;%=</span> <span class="n">port</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">    NameVirtualHost </span><span class="cp">&lt;%=</span> <span class="n">vhost_name</span> <span class="cp">%&gt;</span><span class="x">:</span><span class="cp">&lt;%=</span> <span class="n">port</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">    &lt;VirtualHost </span><span class="cp">&lt;%=</span> <span class="n">vhost_name</span> <span class="cp">%&gt;</span><span class="x">:</span><span class="cp">&lt;%=</span> <span class="n">port</span> <span class="cp">%&gt;</span><span class="x">&gt;</span>
+<span class="x">      ServerName </span><span class="cp">&lt;%=</span> <span class="n">srvname</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="k">if</span> <span class="n">serveraliases</span><span class="o">.</span><span class="n">is_a?</span> <span class="nb">Array</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="n">serveraliases</span><span class="o">.</span><span class="n">each</span> <span class="k">do</span> <span class="o">|</span><span class="nb">name</span><span class="o">|</span> <span class="cp">-%&gt;&lt;%=</span> <span class="s2">&quot;  ServerAlias </span><span class="si">#{</span><span class="nb">name</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="cp">%&gt;&lt;%</span> <span class="k">end</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="k">elsif</span> <span class="n">serveraliases</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    </span><span class="cp">&lt;%=</span> <span class="s2">&quot;  ServerAlias </span><span class="si">#{</span><span class="n">serveraliases</span><span class="si">}</span><span class="s2">&quot;</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">    </span><span class="cp">&lt;%</span> <span class="k">end</span> <span class="cp">-%&gt;</span><span class="x"></span>
+<span class="x">      DocumentRoot </span><span class="cp">&lt;%=</span> <span class="n">docroot</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">      &lt;Directory </span><span class="cp">&lt;%=</span> <span class="n">docroot</span> <span class="cp">%&gt;</span><span class="x">&gt;</span>
+<span class="x">        Options </span><span class="cp">&lt;%=</span> <span class="n">options</span> <span class="cp">%&gt;</span><span class="x"></span>
+<span class="x">        AllowOverride None</span>
+<span class="x">        Order allow,deny</span>
+<span class="x">        allow from all</span>
+<span class="x">      &lt;/Directory&gt;</span>
+<span class="x">      ErrorLog </span><span class="cp">&lt;%=</span> <span class="n">logdir</span> <span class="cp">%&gt;</span><span class="x">/</span><span class="cp">&lt;%=</span> <span class="nb">name</span> <span class="cp">%&gt;</span><span class="x">_error.log</span>
+<span class="x">      LogLevel warn</span>
+<span class="x">      CustomLog </span><span class="cp">&lt;%=</span> <span class="n">logdir</span> <span class="cp">%&gt;</span><span class="x">/</span><span class="cp">&lt;%=</span> <span class="nb">name</span> <span class="cp">%&gt;</span><span class="x">_access.log combined</span>
+<span class="x">      ServerSignature Off</span>
+<span class="x">    &lt;/VirtualHost&gt;</span>
+</code></pre>
+</div>
+
+<p>And that’s more or less a wrap. You can apply a manifest like this:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="n">apache</span><span class="o">::</span><span class="n">vhost</span> <span class="p">{</span><span class="s1">&#39;testhost&#39;</span><span class="p">:</span>
+      <span class="n">port</span>       <span class="o">=&gt;</span> <span class="mi">8081</span><span class="p">,</span>
+      <span class="n">docroot</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/var/www-testhost&#39;</span><span class="p">,</span>
+      <span class="n">priority</span>   <span class="o">=&gt;</span> <span class="mi">25</span><span class="p">,</span>
+      <span class="n">servername</span> <span class="o">=&gt;</span> <span class="s1">&#39;puppet&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>…and (as long as the directory exists) you’ll immediately be able to reach the new vhost:</p>
+
+<pre><code># curl http://puppet:8081
+</code></pre>
+
+<p>In a way, this is just slightly more sophisticated than the first example — it’s still only one <code>file</code> resource — but the use of a template makes it a LOT more powerful, and you can already see how much time it can save. And you can make it slicker as you build more types: once you’ve got a custom type that handles firewall rules, for example, you can add something like <em>this</em> to the definition:</p>
+
+<pre><code>firewall {"0100-INPUT ACCEPT $port":
+    jump  =&gt; 'ACCEPT',
+    dport =&gt; "$port",
+    proto =&gt; 'tcp'
+}
+</code></pre>
+
+<h2 id="exercises">Exercises</h2>
+
+<p>Take a minute to make a few more defined types, just to get used to modeling repeatable groups of resources.</p>
+
+<ul>
+  <li>Try wrapping a <code>user</code> resource in a <code>human::user</code> type that manages that person’s .bashrc file and manages one or more <code>ssh_authorized_key</code> resources for their account.</li>
+  <li>If you’re familiar with git, take a stab at writing a <code>git::repo</code> type that can clone from a repository on the network (and maybe even keep the working copy up-to-date on a specific branch!). This’ll be harder — you’ll probably have to make a <code>git</code> class to make sure git is available, and you’ll have to use at least one <code>file</code> (<code>ensure =&gt; directory</code>) and at least one <code>exec</code> resource. Keep in mind that execs can be tricky, since you need to make sure they only run when necessary.</li>
+</ul>
+
+<h2 id="one-last-tip">One Last Tip</h2>
+
+<p>Defined types take input, and input can get a little dirty — you might want to check your parameters to make sure they’re the correct data type, and fail early if they’re garbage instead of writing undefined stuff to the system.</p>
+
+<p>If you’re going to make a practice of validating your inputs (hint: DO), you can save yourself a lot of effort by using the validation functions in Puppet Labs’ <code>stdlib</code> module. We ship a version of <code>stdlib</code> with PE 2.0, and you can also download it for free at either <a href="https://github.com/puppetlabs/puppetlabs-stdlib/">GitHub</a> or <a href="http://forge.puppetlabs.com/puppetlabs/stdlib">the module forge</a>. The functions are:</p>
+
+<ul>
+  <li><code>validate_array</code></li>
+  <li><code>validate_bool</code></li>
+  <li><code>validate_hash</code></li>
+  <li><code>validate_re</code></li>
+  <li><code>validate_string</code></li>
+</ul>
+
+<p>You can learn how to use these by running <code>puppet doc --reference function | less</code> on a system that has <code>stdlib</code> installed in its <code>modulepath</code>, or you can read the documentation directly in each of the functions’ files — look in the <code>lib/puppet/parser/functions</code> directory of the module.</p>
+
+<h2 id="next">Next</h2>
+
+<p><strong>Next Lesson:</strong></p>
+
+<p>There’s more to say about modules — we still haven’t covered data separation, patterns for making your modules more readable, or module composition yet — but there’s more important business afoot. <a href="./agentprep.html">Continue reading</a> to prepare your VMs (yes, plural) for agent/master Puppet.</p>
+
+<p><strong>Off-Road:</strong></p>
+
+<p>We’ve seen several Apache examples already, and it’s pretty likely that you’re running at least one web server in your own infrastructure. Why not use one of the off-the-shelf modules available, and see whether you can reproduce your own configuration in an automated way?</p>
+
+<p><a href="http://info.puppetlabs.com/download-pe.html">Download Puppet Enterprise for free</a>, and follow <a href="/pe/latest/quick_start.html">the quick start guide</a> to get a small environment installed on some test machines. Then, install one of the following modules:</p>
+
+<ul>
+  <li><a href="http://forge.puppetlabs.com/puppetlabs/apache">puppetlabs/apache</a></li>
+  <li><a href="http://forge.puppetlabs.com/simondean/iis">simondean/iis</a> (for IIS on Windows Server)</li>
+  <li><a href="http://forge.puppetlabs.com/modules?utf-8=%E2%9C%93&amp;q=nginx&amp;LeadSource=Web+-+Organic&amp;Lead_Source_Description__c=google+-+%28not+provided%29&amp;utm_source__c=google&amp;utm_medium__c=organic&amp;utm_term__c=%28not+provided%29&amp;utm_content__c=null&amp;utm_campaign__c=%28organic%29&amp;utm_adgroup__c=null&amp;gclid=">Any of the many Nginx modules</a></li>
+</ul>
+
+<p>Read the module’s documentation to see how it works, then try managing the service and any relevant virtual hosts to match your manually configured infrastructure.</p>
+
+
+          <blockquote><p style="font-size: 1.3em; text-align: center;"><a href="#content">↑ Back to top</a></p></blockquote>
+        </div>
+        <nav class="main">
+              <div id="subCol">
+                  <ul id="doc-navigation">
+                    <li class="with-submenu">
+                      <a href="#">
+                        <span>Docs Quick Nav</span>
+                        <span class="drop-down-trigger"></span>
+                      </a>
+                                       <dl>
+                  <dt>Home</dt>
+                    <dd><a href="/">Puppet Docs Front Page</a></dd>
+                  <dt>#1 Most Popular</dt>
+                    <dd><a href="/references/stable/type.html">The Resource Type Reference</a></dd>
+                  <dt>Puppet Enterprise</dt>
+                    <dd><a href="/pe/latest/">Puppet Enterprise User's Guide (latest)</a></dd>
+                    <dd><a href="/pe/latest/quick_start.html">Quick Start Guide</a></dd>
+                  <dt>Puppet in General (PE &amp; Open Source)</dt>
+                      <dd><a href="/puppet/latest/reference">Puppet Reference Manual (latest)</a></dd>
+                      <dd><a href="/learning/">Learning Puppet</a></dd>
+                      <dd><a href="/references/glossary.html">Glossary of Puppet Terms</a></dd>
+                  <dt>Open Source Puppet</dt>
+                    <dd><a href="/guides/install_puppet/pre_install.html">Installing</a></dd>
+                    <dd><a href="/guides/install_puppet/upgrading.html">Upgrading</a></dd>
+                  <dt>Facter</dt>
+                      <dd><a href="/facter/latest/core_facts.html">Core Facts Reference</a></dd>
+                      <dd><a href="/facter/latest/fact_overview.html">Writing Custom Facts</a></dd>
+                  <dt>PuppetDB</dt>
+                      <dd><a href="/puppetdb/latest">PuppetDB Manual</a></dd>
+                  <dt>MCollective</dt>
+                      <dd><a href="/mcollective/index.html">All MCollective Docs</a></dd>
+                      <dd><a href="/mcollective/reference/index.html">References</a></dd>
+                      <dd><a href="/mcollective/simplerpc/index.html">Writing Plugins</a></dd>
+                </dl>
+
+                    </li>
+                  </ul>
+
+
+
+<ul>
+  <li><a href="/learning/index.html">Introduction</a></li>
+  <li><strong>Part one: Serverless Puppet</strong>
+    <ul>
+      <li><a href="/learning/ral.html">Resources and the RAL</a></li>
+      <li><a href="/learning/manifests.html">Manifests</a></li>
+      <li><a href="/learning/ordering.html">Ordering</a></li>
+      <li><a href="/learning/variables.html">Variables, Conditionals, Facts</a></li>
+      <li><a href="/learning/modules1.html">Modules and Classes</a></li>
+      <li><a href="/learning/templates.html">Templates</a></li>
+      <li><a href="/learning/modules2.html">Class Parameters</a></li>
+      <li><span class="currentpage">Defined Types</span></li>
+    </ul>
+  </li>
+  <li><strong>Part two: Master/Agent Puppet</strong>
+    <ul>
+      <li><a href="/learning/agentprep.html">Preparing an Agent VM</a></li>
+      <li><a href="/learning/agent_master_basic.html">Basic Agent/Master Puppet</a></li>
+    </ul>
+  </li>
+</ul>
+
+              </div>
+        </nav>
+      </div>
+    </div>
+  </section>

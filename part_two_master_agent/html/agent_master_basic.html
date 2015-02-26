@@ -1,0 +1,308 @@
+
+  <section id="content">
+    <div class="site-width">
+      <div class="primary-secondary-content">
+        <div class="primary-content">
+          <h1>Learning Puppet — Basic Agent/Master Puppet</h1>
+          <div id="version-note">  </div>
+          <nav class="in-page" id="page-nav">
+<ol class="toc">
+  <li class="toc-lv2"><a href="#introduction">Introduction</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#how-do-agents-get-configurations">How Do Agents Get Configurations?</a></li>
+   <li class="toc-lv3"><a href="#what-do-agents-do-and-what-do-masters-do">What Do Agents Do, and What Do Masters Do?</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#the-agent-subcommand">The Agent Subcommand</a></li>
+  <li class="toc-lv2"><a href="#saying-hi">Saying Hi</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#what-happened">What Happened?</a></li>
+   <li class="toc-lv3"><a href="#troubleshooting">Troubleshooting</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#signing-the-certificate">Signing the Certificate</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#what-happened-1">What Happened?</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#serving-a-real-configuration">Serving a Real Configuration</a>
+<ol class="toc">
+   <li class="toc-lv3"><a href="#sitepp">Site.pp</a></li>
+   <li class="toc-lv3"><a href="#node-definitions">Node Definitions</a></li>
+   <li class="toc-lv3"><a href="#pulling-the-new-configuration">Pulling the New Configuration</a></li>
+</ol></li>
+  <li class="toc-lv2"><a href="#more-installments-coming-later">More Installments Coming Later</a></li>
+</ol></nav>
+
+<p>This guide assumes that you’ve followed <a href="./agentprep.html">the previous walkthrough</a>, and have a fresh agent VM that can reach your original master VM over the network. Both VMs should be running right now, and you’ll need to be logged in to both of them as root.</p>
+
+<h2 id="introduction">Introduction</h2>
+
+<h3 id="how-do-agents-get-configurations">How Do Agents Get Configurations?</h3>
+
+<p>Puppet’s agent/master mode is <strong>pull-based.</strong> Usually, agents are configured to periodically fetch a catalog and apply it, and the master controls what goes into that catalog. (For the next few exercises, though, you’ll be triggering runs manually.)</p>
+
+<h3 id="what-do-agents-do-and-what-do-masters-do">What Do Agents Do, and What Do Masters Do?</h3>
+
+<p><a href="./manifests.html#aside-compilation">Earlier</a>, you saw this diagram of how Puppet compiles and applies a manifest:</p>
+
+<p><img src="./images/manifest_to_defined_state_unified.png" alt="Diagram of manifests being compiled into a catalog, which gets applied to enforce a defined system state." /></p>
+
+<p>Running Puppet in agent/master mode works much the same way — the main difference is that it moves the manifests and compilation to the puppet master server. Agents don’t have to see any manifest files at all, and have no access to configuration information that isn’t in their own catalog.</p>
+
+<p><img src="./images/manifest_to_defined_state_split.png" alt="Diagram of an agent requesting a catalog, which gets compiled and served by a puppet master and applied by the agent" /></p>
+
+<h2 id="the-agent-subcommand">The Agent Subcommand</h2>
+
+<p>The puppet agent subcommand fetches configurations from a master server. It has two main modes:</p>
+
+<ol>
+  <li>Daemonize and fetch configurations every half-hour (default)</li>
+  <li>Run once and quit</li>
+</ol>
+
+<p>We’ll be using the second mode, since it gives a better view of what’s going on. To keep the agent from daemonizing, you should use the <code>--test</code> option, which also prints detailed descriptions of what the agent is doing.</p>
+
+<p>If you accidentally run the agent without <code>--test</code>, it will daemonize and run in the background. To check whether the agent is running in the background, run:</p>
+
+<pre><code># /etc/init.d/pe-puppet status
+</code></pre>
+
+<p>To turn it off, run:</p>
+
+<pre><code># /etc/init.d/pe-puppet stop
+</code></pre>
+
+<h2 id="saying-hi">Saying Hi</h2>
+
+<p>Time to start! <strong>On your agent VM,</strong> start puppet agent for the first time:</p>
+
+<pre><code>[root@agent1 ~]# puppet agent --test
+info: Creating a new SSL key for agent1.localdomain
+warning: peer certificate won't be verified in this SSL session
+info: Caching certificate for ca
+warning: peer certificate won't be verified in this SSL session
+warning: peer certificate won't be verified in this SSL session
+info: Creating a new SSL certificate request for agent1.localdomain
+info: Certificate Request fingerprint (md5): FD:E7:41:C9:2C:B7:5C:27:11:0C:8F:9C:1D:F6:F9:46
+warning: peer certificate won't be verified in this SSL session
+warning: peer certificate won't be verified in this SSL session
+warning: peer certificate won't be verified in this SSL session
+Exiting; no certificate found and waitforcert is disabled
+</code></pre>
+
+<p>Hmm.</p>
+
+<h3 id="what-happened">What Happened?</h3>
+
+<p>Puppet agent found the puppet master, but it got stopped at the certificate roadblock. It isn’t authorized to fetch configurations, so the master is turning it away.</p>
+
+<h3 id="troubleshooting">Troubleshooting</h3>
+
+<p>It’s possible you didn’t see the response printed above, and there are a number of possible culprits. Read back over the <a href="./agentprep.html">instructions for creating your agent VM</a> and make sure you didn’t miss anything; in particular, check that:</p>
+
+<ul>
+  <li>The VMs can ping each other</li>
+  <li>The agent can resolve the puppet master by host name</li>
+  <li>The agent’s <code>/etc/puppetlabs/puppet/puppet.conf</code> file has a <code>server</code> setting (in the <code>[agent]</code> block) of <code>puppet</code> or <code>learn.localdomain</code></li>
+  <li>The VMs’ clocks are in sync</li>
+</ul>
+
+<h2 id="signing-the-certificate">Signing the Certificate</h2>
+
+<p>So we’ll authorize it! <strong>On your puppet master VM,</strong> check the list of outstanding certificate requests with <code>puppet cert list</code>. (More about this command later.)</p>
+
+<pre><code>[root@learn ~]# puppet cert list
+  agent1.localdomain (FD:E7:41:C9:2C:B7:5C:27:11:0C:8F:9C:1D:F6:F9:46)
+</code></pre>
+
+<p><em>There’s</em> our agent node. And the request fingerprint matches, too. You know this node is okay, so go ahead and sign its certificate with <code>puppet cert sign</code>:</p>
+
+<pre><code>[root@learn ~]# puppet cert sign agent1.localdomain
+notice: Signed certificate request for agent1.localdomain
+notice: Removing file Puppet::SSL::CertificateRequest agent1.localdomain at '/etc/puppetlabs/puppet/ssl/ca/requests/agent1.localdomain.pem'
+</code></pre>
+
+<p>Now that it’s authorized, <strong>go back to the agent VM</strong> and run puppet agent again:</p>
+
+<pre><code>[root@agent1 ~]# puppet agent --test
+warning: peer certificate won't be verified in this SSL session
+info: Caching certificate for agent1.localdomain
+info: Retrieving plugin
+info: Caching certificate_revocation_list for ca
+info: Loading facts in facter_dot_d
+info: Loading facts in facter_dot_d
+info: Loading facts in facter_dot_d
+info: Loading facts in facter_dot_d
+info: Caching catalog for agent1.localdomain
+info: Applying configuration version '1326210629'
+notice: Finished catalog run in 0.11 seconds
+</code></pre>
+
+<p>It worked! That was a successful Puppet run, although it didn’t do much yet.</p>
+
+<h3 id="what-happened-1">What Happened?</h3>
+
+<p>Puppet uses SSL certificates to protect communications between agents and the master. Since agents can’t do a full run without a certificate, our agent had to ask for one and then wait for the request to get approved.</p>
+
+<p>We’ll cover SSL in more detail later.</p>
+
+<h2 id="serving-a-real-configuration">Serving a Real Configuration</h2>
+
+<p>So how can we make the agent do something interesting? Well, we already built some useful classes, and they’re all available on the puppet master, so we’ll use them. (If you haven’t already copied the modules from your old VM into your puppet master’s <code>/etc/puppetlabs/puppet/modules</code> directory, do so now.)</p>
+
+<p>But how do we choose which classes go into an agent’s catalog?</p>
+
+<h3 id="sitepp">Site.pp</h3>
+
+<p>When we were using puppet apply, we would usually specify a manifest file, which declared all of the classes or resources we wanted to apply.</p>
+
+<p>The puppet master works the same way, except that it <strong>always loads the same manifest file,</strong> which we usually refer to as site.pp. With Puppet Enterprise, it’s located by default at <code>/etc/puppetlabs/puppet/manifests/site.pp</code>, but you can configure its location with <a href="/references/latest/configuration.html#manifest">the <code>manifest</code> setting</a>.</p>
+
+<p>You could declare classes and resources directly in site.pp, but that would make every node get the same resources in its catalog, which is of limited use. Instead, we’ll hide the classes we want to declare in a <strong>node definition.</strong></p>
+
+<h3 id="node-definitions">Node Definitions</h3>
+
+<p>Node definitions work almost exactly like class definitions:</p>
+
+<div class="highlight"><pre><code class="ruby">    <span class="c1"># Append this at the bottom of /etc/puppetlabs/puppet/manifests/site.pp</span>
+
+    <span class="n">node</span> <span class="s1">&#39;agent1.localdomain&#39;</span> <span class="p">{</span>
+
+      <span class="c1"># Note the quotes around the name! Node names can have characters that</span>
+      <span class="c1"># aren&#39;t legal for class names, so you can&#39;t always use bare, unquoted</span>
+      <span class="c1"># strings like we do with classes.</span>
+
+      <span class="c1"># Any resource or class declaration can go inside here. For now:</span>
+
+      <span class="kp">include</span> <span class="n">apache</span>
+
+      <span class="k">class</span> <span class="p">{</span><span class="s1">&#39;ntp&#39;</span><span class="p">:</span>
+        <span class="n">servers</span> <span class="o">=&gt;</span> <span class="o">[</span> <span class="s2">&quot;ntp1.example.com dynamic&quot;</span><span class="p">,</span> <span class="s2">&quot;ntp2.example.com dynamic&quot;</span><span class="p">,</span> <span class="o">]</span><span class="p">,</span>
+      <span class="p">}</span>
+
+    <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>But unlike classes, nodes are declared automatically, based on the <strong>name</strong> of the node whose catalog is being compiled. <strong>Only one</strong> node definition will get added to a given catalog, and any other node definitions are effectively hidden.</p>
+
+<p>An agent node’s <strong>name</strong> is almost always read from its <a href="/references/latest/configuration.html#certname"><code>certname</code> setting</a>, which is set at install time but can be changed later. The certname is usually (but not always) the node’s fully qualified domain name.</p>
+
+<p>More on node definitions later, as well as alternate ways to assign classes to a node.</p>
+
+<h3 id="pulling-the-new-configuration">Pulling the New Configuration</h3>
+
+<p>Now that you’ve saved site.pp with a node definition that matches the agent VM’s name, go back to that VM and run puppet agent again:</p>
+
+<pre><code>[root@agent1 ~]# puppet agent --test
+info: Retrieving plugin
+info: Loading facts in facter_dot_d
+info: Loading facts in facter_dot_d
+info: Loading facts in facter_dot_d
+info: Loading facts in facter_dot_d
+info: Caching catalog for agent1.localdomain
+info: Applying configuration version '1326416535'
+notice: /Stage[main]/Ntp/Package[ntp]/ensure: created
+--- /etc/ntp.conf   2011-11-18 13:21:25.000000000 +0000
++++ /tmp/puppet-file20120113-5967-56l9xy-0  2012-01-13 01:02:23.000000000 +0000
+@@ -14,6 +14,8 @@
+
+ # Use public servers from the pool.ntp.org project.
+ # Please consider joining the pool (http://www.pool.ntp.org/join.html).
++
++# Managed by puppet class { "ntp": servers =&gt; [ ... ] }
+ server 0.centos.pool.ntp.org
+ server 1.centos.pool.ntp.org
+ server 2.centos.pool.ntp.org
+info: /Stage[main]/Ntp/File[ntp.conf]: Filebucketed /etc/ntp.conf to main with sum 5baec8bdbf90f877a05f88ba99e63685
+notice: /Stage[main]/Ntp/File[ntp.conf]/content: content changed '{md5}5baec8bdbf90f877a05f88ba99e63685' to '{md5}35ea00fd40740faf3fd6d1708db6ad65'
+notice: /Stage[main]/Apache/Package[apache]/ensure: created
+notice: /Stage[main]/Apache/Service[apache]/ensure: ensure changed 'stopped' to 'running'
+info: ntp.conf: Scheduling refresh of Service[ntp]
+notice: /Stage[main]/Ntp/Service[ntp]: Triggered 'refresh' from 1 events
+notice: Finished catalog run in 32.74 seconds
+</code></pre>
+
+<p>Success! We’ve pulled a configuration that actually does something.</p>
+
+<p>If you change this node’s definition in site.pp, it will fetch that new configuration on its next run (which, in a normal environment, would happen less than 30 minutes after you make the change).</p>
+
+<h2 id="more-installments-coming-later">More Installments Coming Later</h2>
+
+<p>You now know how to:</p>
+
+<ul>
+  <li>Run puppet agent interactively with <code>--test</code></li>
+  <li>Authorize a new agent node to pull configurations from the puppet master</li>
+  <li>Use node definitions in site.pp to choose which classes go into a given node’s catalog</li>
+</ul>
+
+<p>But there are some important details we’ve glossed over. In a future installment, we’ll talk more about certificates and node classification.</p>
+
+
+          <blockquote><p style="font-size: 1.3em; text-align: center;"><a href="#content">↑ Back to top</a></p></blockquote>
+        </div>
+        <nav class="main">
+              <div id="subCol">
+                  <ul id="doc-navigation">
+                    <li class="with-submenu">
+                      <a href="#">
+                        <span>Docs Quick Nav</span>
+                        <span class="drop-down-trigger"></span>
+                      </a>
+                                       <dl>
+                  <dt>Home</dt>
+                    <dd><a href="/">Puppet Docs Front Page</a></dd>
+                  <dt>#1 Most Popular</dt>
+                    <dd><a href="/references/stable/type.html">The Resource Type Reference</a></dd>
+                  <dt>Puppet Enterprise</dt>
+                    <dd><a href="/pe/latest/">Puppet Enterprise User's Guide (latest)</a></dd>
+                    <dd><a href="/pe/latest/quick_start.html">Quick Start Guide</a></dd>
+                  <dt>Puppet in General (PE &amp; Open Source)</dt>
+                      <dd><a href="/puppet/latest/reference">Puppet Reference Manual (latest)</a></dd>
+                      <dd><a href="/learning/">Learning Puppet</a></dd>
+                      <dd><a href="/references/glossary.html">Glossary of Puppet Terms</a></dd>
+                  <dt>Open Source Puppet</dt>
+                    <dd><a href="/guides/install_puppet/pre_install.html">Installing</a></dd>
+                    <dd><a href="/guides/install_puppet/upgrading.html">Upgrading</a></dd>
+                  <dt>Facter</dt>
+                      <dd><a href="/facter/latest/core_facts.html">Core Facts Reference</a></dd>
+                      <dd><a href="/facter/latest/fact_overview.html">Writing Custom Facts</a></dd>
+                  <dt>PuppetDB</dt>
+                      <dd><a href="/puppetdb/latest">PuppetDB Manual</a></dd>
+                  <dt>MCollective</dt>
+                      <dd><a href="/mcollective/index.html">All MCollective Docs</a></dd>
+                      <dd><a href="/mcollective/reference/index.html">References</a></dd>
+                      <dd><a href="/mcollective/simplerpc/index.html">Writing Plugins</a></dd>
+                </dl>
+
+                    </li>
+                  </ul>
+
+
+
+<ul>
+  <li><a href="/learning/index.html">Introduction</a></li>
+  <li><strong>Part one: Serverless Puppet</strong>
+    <ul>
+      <li><a href="/learning/ral.html">Resources and the RAL</a></li>
+      <li><a href="/learning/manifests.html">Manifests</a></li>
+      <li><a href="/learning/ordering.html">Ordering</a></li>
+      <li><a href="/learning/variables.html">Variables, Conditionals, Facts</a></li>
+      <li><a href="/learning/modules1.html">Modules and Classes</a></li>
+      <li><a href="/learning/templates.html">Templates</a></li>
+      <li><a href="/learning/modules2.html">Class Parameters</a></li>
+      <li><a href="/learning/definedtypes.html">Defined Types</a></li>
+    </ul>
+  </li>
+  <li><strong>Part two: Master/Agent Puppet</strong>
+    <ul>
+      <li><a href="/learning/agentprep.html">Preparing an Agent VM</a></li>
+      <li><span class="currentpage">Basic Agent/Master Puppet</span></li>
+    </ul>
+  </li>
+</ul>
+
+              </div>
+        </nav>
+      </div>
+    </div>
+  </section>

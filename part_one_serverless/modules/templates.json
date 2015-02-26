@@ -1,0 +1,35 @@
+{
+  "olpVersion" : "0.1",
+  "id" : "learning_puppet-part_one-templates",
+  "version" : "0.0.1",
+  "title" : "Templates",
+  "description": "Let’s make a small adjustment to our NTP module from the last chapter: remove the source attribute from the file resource, and replace it with...",
+  "type" : "module",
+  "labels" : [
+    "Puppet",
+    "puppet labs",
+    "reductive labs",
+    "open source",
+    "system administrator",
+    "ruby",
+    "data center",
+    "automation",
+    "support"
+  ],
+  "homepage" : "https://puppetlabs.com/services/training",
+  "authors" : "Puppet Labs",
+  "organization" : "Puppet Labs",
+  "license" : "public",
+  "contact" : {
+    "phone" : "1-503-575-9775",
+    "url" : "https://puppetlabs.com/contact",
+  },
+  "learningPath" : false,
+  "parts" : [
+    {
+      "type" : "asset",
+      "contentType" : "text/markdown",
+      "location" : "assets/part_one/templates.md"
+    }
+  ]
+}
