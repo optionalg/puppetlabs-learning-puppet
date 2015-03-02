@@ -1,7 +1,7 @@
 {
   "olpVersion" : "0.1",
   "id" : "learning_puppet",
-  "version" : "0.0.1",
+  "version" : "0.2.0",
   "title" : "Learning Puppet",
   "description": "A complete path on using puppet for configuration management",
   "type" : "module",
@@ -17,27 +17,16 @@
     "phone" : "1-503-575-9775",
     "url" : "https://puppetlabs.com/contact",
   },
-  "learningPath" : true,
-  "parts" : [
+  "sections" : [
     {
       "type" : "module",
       "contentType" : "outlearn/olp",
-      "location" : "./part_one_serverless/part_one.json"
-    },
-    {
-      "type" : "asset",
-      "contentType" : "text/markdown",
-      "location" : "./part_one_serverless/part_one.md"
-    },
-    {
-      "type" : "module",
-      "contentType" : "outlearn/olm",
-      "location" : "./part_one_serverless/part_one.md"
+      "location" : "./serverless-puppet/serverless-puppet.json"
     },
     {
       "type" : "module",
       "contentType" : "outlearn/olp",
-      "location" : "./part_one_master_agent/part_two.json"
+      "location" : "./master-agent-puppet/master-agent-puppet.json"
     }
   ]
 }

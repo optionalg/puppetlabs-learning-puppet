@@ -19,8 +19,8 @@ Welcome to Learning Puppet! This series covers the basics of writing Puppet code
 ## Begin
 
 Log into the Learning Puppet VM as root, and run `puppet resource service`. This command will return something like the following:
-    
-    
+
+
     service { 'NetworkManager':
       ensure => 'stopped',
       enable => 'false',
@@ -39,16 +39,16 @@ Log into the Learning Puppet VM as root, and run `puppet resource service`. This
     }
     ...
     ... (etc.)
-    
+
 
 Okay! You’ve just met your first Puppet resources.
 
 > ### What Just Happened?
-> 
+>
 >   * `puppet`: Most of Puppet’s functionality comes from a single `puppet` command, which has many subcommands.
 >   * `resource`: The `resource` subcommand can inspect and modify resources interactively.
 >   * `service`: The first argument to the `puppet resource` command must be a **resource type,** which you’ll learn more about below. A full list of types can be found at [the Puppet type reference](https://docs.puppetlabs.com/references/latest/type.html).
-> 
+>
 > Taken together, this command inspected every service on the system, whether running or stopped.
 
 ## Resources
@@ -90,22 +90,22 @@ These three insights form Puppet’s resource abstraction layer (RAL). The RAL c
 In Puppet, every resource is an instance of a **resource type** and is identified by a **title;** it has a number of **attributes** (which are defined by the type), and each attribute has a **value.**
 
 Puppet uses its own language to describe and manage resources:
-    
-    
-        user { 'dave':
-          ensure     => present,
-          uid        => '507',
-          gid        => 'admin',
-          shell      => '/bin/ksh',
-          home       => '/home/dave',
-          managehome => true,
-        }
-    
+
+
+    user { 'dave':
+      ensure     => present,
+      uid        => '507',
+      gid        => 'admin',
+      shell      => '/bin/ksh',
+      home       => '/home/dave',
+      managehome => true,
+    }
+
 
 This syntax is called a **resource declaration.** You saw it earlier when you ran `puppet resource service`, and it’s the heart of the Puppet language. It describes a desired state for a resource, without mentioning any steps that must be taken to reach that state.
 
 > Try and identify all four parts of the resource declaration above:
-> 
+>
 >   * Type
 >   * Title
 >   * Attributes
@@ -148,7 +148,7 @@ In the next few chapters, we’ll talk about using the Puppet language to manage
 Puppet Enterprise includes a web console for controlling many of its features. One of the things it can do is browse and inspect resources on any PE systems the console can reach. This supports a limited number of resource types, but has some useful comparison features for correlating data across a large number of nodes.
 
 > #### Logging In
-> 
+>
 > When you first started your VM, it gave you the URL, username, and password for accessing the console. The user and password should always be `puppet@example.com` and `learningpuppet`. The URL will be `https://<IP ADDRESS>`; you can get your VM’s IP address by running `facter ipaddress` at the command line.
 
 Once logged in, navigate to “Live Management” in the top menu bar, then click the “Browse Resources” tab. From here, you can [use orchestration to find and inspect resources](https://docs.puppetlabs.com/pe/3.0/orchestration_resources.html).
@@ -160,10 +160,10 @@ Since you’re only using a single node, you won’t see much in the way of comp
 Puppet includes a command called `puppet resource`, which can interactively inspect and modify resources on a single system.
 
 Usage of puppet resource is as follows:
-    
-    
+
+
     # puppet resource <TYPE> [<NAME>] [ATTRIBUTE=VALUE ...]
-    
+
 
   * The first argument must be a resource type. If no other arguments are given, it will inspect every resource of that type it can find.
   * The second argument (optional) is the name of a resource. If no other arguments are given, it will inspect that resource.
@@ -171,12 +171,12 @@ Usage of puppet resource is as follows:
   * Alternately, if you specify a resource name and use the `\--edit` flag, you can change that resource in your text editor; after the buffer is saved and closed, Puppet will modify the resource to match your changes.
 
 > #### Exercises
-> 
+>
 > Inspecting a single resource:
->     
->     
+>
+>
 >     # puppet resource user root
->     
+>
 >     user { 'root':
 >       ensure           => 'present',
 >       comment          => 'root',
@@ -189,21 +189,21 @@ Usage of puppet resource is as follows:
 >       shell            => '/bin/bash',
 >       uid              => '0',
 >     }
->     
-> 
+>
+>
 > Setting a new desired state for a resource:
->     
->     
+>
+>
 >     # puppet resource user katie ensure=present shell="/bin/bash" home="/home/katie" managehome=true
->     
+>
 >     notice: /User[katie]/ensure: created
->     
+>
 >     user { 'katie':
 >       ensure => 'present',
 >       home   => '/home/katie',
 >       shell  => '/bin/bash'
 >     }
->     
+>
 
 ## Next
 

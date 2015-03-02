@@ -1,0 +1,55 @@
+{
+  "olpVersion" : "0.1",
+  "id" : "learning-puppet-serverless",
+  "version" : "0.2.0",
+  "title" : "Serverless Puppet",
+  "description": "Puppet Labs Learning Puppet Series - Intro to Serverless Puppet.",
+  "type" : "module",
+  "labels" : [
+    "Puppet",
+    "puppet labs",
+  ],
+  "homepage" : "https://puppetlabs.com/services/training",
+  "authors" : "Puppet Labs",
+  "organization" : "Puppet Labs",
+  "license" : "public",
+  "contact" : {
+    "phone" : "1-503-575-9775",
+    "url" : "https://puppetlabs.com/contact",
+  },
+  "sections" : [
+    {
+      "title" : "Resources and the RAL",
+      "location" : "./sections/ral.md"
+    },
+    {
+      "title" : "Manifests",
+      "location" : "./sections/manifests.md"
+    },
+    {
+      "title" : "Resource Ordering",
+      "location" : "./sections/ordering.md"
+    },
+    {
+      "title" : "Variables, Conditionals, and Facts",
+      "location" : "./sections/variables.md"
+    },
+    {
+      "title" : "Modules and Classes",
+      "location" : "./sections/modules1.md"
+    },
+    {
+      "title" : "Templates",
+      "location" : "./sections/templates.md"
+    },
+    {
+      "title" : "Class Parameters",
+      "location" : "./sections/modules2.md"
+    },
+    {
+      "title" : "Defined Types",
+      "location" : "./sections/definedtypes.md"
+    }
+  ]
+}
+
