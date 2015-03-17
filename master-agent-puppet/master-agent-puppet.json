@@ -1,22 +1,20 @@
 {
-  "olpVersion" : "0.1",
-  "id" : "learning-puppet-master-agent",
-  "version" : "0.2.0",
+  "olpVersion" : "0.2",
+  "name" : "learning-puppet-master-agent",
+  "version" : "0.1.2",
   "title" : "Master/Agent Puppet",
   "description": "Puppet Labs Learning Puppet Series - Continuation of serverless puppet introduction, this module looks at setting up a master/agent puppet architecture.",
-  "type" : "module",
   "labels" : [
     "Puppet",
     "puppet labs",
   ],
   "homepage" : "https://puppetlabs.com/services/training",
-  "authors" : "Puppet Labs",
+  "authors" : {
+    "org": "Puppet Labs"
+  },
   "organization" : "Puppet Labs",
   "license" : "public",
-  "contact" : {
-    "phone" : "1-503-575-9775",
-    "url" : "https://puppetlabs.com/contact",
-  },
+  "contact" : "training@puppetlabs.com",
   "sections" : [
     {
       "title": "Basic Agent/Master Puppet",

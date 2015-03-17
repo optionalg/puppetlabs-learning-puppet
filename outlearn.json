@@ -1,22 +1,20 @@
 {
-  "olpVersion" : "0.1",
-  "id" : "learning_puppet",
-  "version" : "0.2.0",
+  "olpVersion" : "0.2",
+  "name" : "learning_puppet",
+  "version" : "0.1.2",
   "title" : "Learning Puppet",
   "description": "A complete path on using puppet for configuration management",
-  "type" : "module",
   "labels" : [
     "Puppet",
     "puppet labs",
   ],
   "homepage" : "https://puppetlabs.com/services/training",
-  "authors" : "Puppet Labs",
+  "authors" : {
+    "org": "Puppet Labs"
+  },
   "organization" : "Puppet Labs",
   "license" : "public",
-  "contact" : {
-    "phone" : "1-503-575-9775",
-    "url" : "https://puppetlabs.com/contact",
-  },
+  "contact" : "training@puppetlabs.com",
   "sections" : [
     {
       "type" : "module",
