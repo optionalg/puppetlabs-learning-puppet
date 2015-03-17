@@ -6,7 +6,7 @@
   "description": "Puppet Labs Learning Puppet Series - Intro to Serverless Puppet.",
   "labels" : [
     "Puppet",
-    "puppet labs",
+    "puppet labs"
   ],
   "homepage" : "https://puppetlabs.com/services/training",
   "authors" : {
@@ -18,35 +18,35 @@
   "sections" : [
     {
       "title" : "Resources and the RAL",
-      "location" : "./sections/ral.md"
+      "location" : "sections/ral.md"
     },
     {
       "title" : "Manifests",
-      "location" : "./sections/manifests.md"
+      "location" : "sections/manifests.md"
     },
     {
       "title" : "Resource Ordering",
-      "location" : "./sections/ordering.md"
+      "location" : "sections/ordering.md"
     },
     {
       "title" : "Variables, Conditionals, and Facts",
-      "location" : "./sections/variables.md"
+      "location" : "sections/variables.md"
     },
     {
       "title" : "Modules and Classes",
-      "location" : "./sections/modules1.md"
+      "location" : "sections/modules1.md"
     },
     {
       "title" : "Templates",
-      "location" : "./sections/templates.md"
+      "location" : "sections/templates.md"
     },
     {
       "title" : "Class Parameters",
-      "location" : "./sections/modules2.md"
+      "location" : "sections/modules2.md"
     },
     {
       "title" : "Defined Types",
-      "location" : "./sections/definedtypes.md"
+      "location" : "sections/definedtypes.md"
     }
   ]
 }
