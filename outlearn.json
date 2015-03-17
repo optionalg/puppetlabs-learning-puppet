@@ -6,7 +6,7 @@
   "description": "A complete path on using puppet for configuration management",
   "labels" : [
     "Puppet",
-    "puppet labs",
+    "puppet labs"
   ],
   "homepage" : "https://puppetlabs.com/services/training",
   "authors" : {

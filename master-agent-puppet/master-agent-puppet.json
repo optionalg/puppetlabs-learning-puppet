@@ -6,7 +6,7 @@
   "description": "Puppet Labs Learning Puppet Series - Continuation of serverless puppet introduction, this module looks at setting up a master/agent puppet architecture.",
   "labels" : [
     "Puppet",
-    "puppet labs",
+    "puppet labs"
   ],
   "homepage" : "https://puppetlabs.com/services/training",
   "authors" : {
