@@ -14,7 +14,9 @@
   },
   "organization" : "Puppet Labs",
   "license" : "public",
-  "contact" : "training@puppetlabs.com",
+  "contact" : {
+    "email" : "training@puppetlabs.com"
+  },
   "sections" : [
     {
       "title": "Basic Agent/Master Puppet",
